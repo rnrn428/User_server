@@ -25,7 +25,7 @@ class GlobalExceptionHandlerTest {
 
     private void setupMockRequest(){
         given(request.getMethod()).willReturn("POST");
-        given(request.getRequestURI()).willReturn("/api/auth/login");
+        given(request.getRequestURI()).willReturn("/api/v1/auth/login");
     }
 
     @Test

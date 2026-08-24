@@ -13,7 +13,7 @@ import site.yesaido.user_server.domain.user.service.AuthService;
 import site.yesaido.user_server.global.common.ApiResponse;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {

@@ -8,7 +8,7 @@ import site.yesaido.user_server.domain.inquiry.dto.response.CultivationSummaryRe
 
 @FeignClient(name = "cultivation-server", url = "${feign.client.cultivation.url}")
 public interface CultivationClient {
-    @GetMapping("/api/cultivations/{cultivation-id}")
+    @GetMapping("/api/v1/cultivations/{cultivation-id}")
     CultivationSummaryResponse getCultivation(@RequestHeader("X-User-Id") Long userId,
                                               @PathVariable("cultivation-id") Long cultivationId);
 }
