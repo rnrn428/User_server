@@ -69,6 +69,16 @@ public class JwtTokenProvider {
         }
     }
 
+    public long getExpirationTime(String token){
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getExpiration()
+                .getTime();
+    }
+
     public Long getUserIdFromToken(String token){
         String userId = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getSubject();
         return Long.parseLong(userId);

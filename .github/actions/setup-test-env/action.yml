@@ -27,3 +27,6 @@ runs:
         echo "MINIO_ACCESS_KEY=minioadmin" >> "$GITHUB_ENV"
         echo "MINIO_SECRET_KEY=minioadmin123" >> "$GITHUB_ENV"
         echo "MINIO_BUCKET=testbucket" >> "$GITHUB_ENV"
+        
+        # Client
+        echo "CULTIVATION_SERVER_URL=http://localhost:8084" >> "$GITHUB_ENV"

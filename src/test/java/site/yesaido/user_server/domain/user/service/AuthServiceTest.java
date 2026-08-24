@@ -66,6 +66,7 @@ class AuthServiceTest {
             given(passwordEncoder.matches(request.password(), user.getPassword())).willReturn(true);
             given(jwtTokenProvider.createAccessToken(anyLong(), any())).willReturn("mockAccessToken");
             given(jwtTokenProvider.createRefreshToken(anyLong(), any())).willReturn("mockRefreshToken");
+            given(jwtTokenProvider.getExpirationTime("mockAccessToken")).willReturn(1_755_671_400_000L);
             given(stringRedisTemplate.opsForValue()).willReturn(valueOperations);
 
             TokenResponse response = authService.login(request);
@@ -73,6 +74,7 @@ class AuthServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getAccessToken()).isEqualTo("mockAccessToken");
             assertThat(response.getRefreshToken()).isEqualTo("mockRefreshToken");
+            assertThat(response.getAccessTokenExpiresAt()).isEqualTo(1_755_671_400_000L);
         }
 
         @Test
@@ -85,12 +87,14 @@ class AuthServiceTest {
             given(userRepository.findByEmail("google@gmail.com")).willReturn(Optional.of(user));
             given(jwtTokenProvider.createAccessToken(anyLong(), any())).willReturn("mockAccessToken");
             given(jwtTokenProvider.createRefreshToken(anyLong(), any())).willReturn("mockRefreshToken");
+            given(jwtTokenProvider.getExpirationTime("mockAccessToken")).willReturn(1_755_671_400_000L);
             given(stringRedisTemplate.opsForValue()).willReturn(valueOperations);
 
             TokenResponse response = authService.loginWithGoogle(request);
 
             assertThat(response).isNotNull();
             assertThat(response.getAccessToken()).isEqualTo("mockAccessToken");
+            assertThat(response.getAccessTokenExpiresAt()).isEqualTo(1_755_671_400_000L);
         }
 
         @Test
@@ -173,12 +177,14 @@ class AuthServiceTest {
             given(userRepository.findById(userId)).willReturn(Optional.of(user));
             given(jwtTokenProvider.createAccessToken(anyLong(), any())).willReturn("newAccessToken");
             given(jwtTokenProvider.createRefreshToken(anyLong(), any())).willReturn("newRefreshToken");
+            given(jwtTokenProvider.getExpirationTime("newAccessToken")).willReturn(1_755_671_400_000L);
 
             TokenResponse response = authService.reissue(refreshToken);
 
             assertThat(response).isNotNull();
             assertThat(response.getAccessToken()).isEqualTo("newAccessToken");
             assertThat(response.getRefreshToken()).isEqualTo("newRefreshToken");
+            assertThat(response.getAccessTokenExpiresAt()).isEqualTo(1_755_671_400_000L);
         }
 
         @Test

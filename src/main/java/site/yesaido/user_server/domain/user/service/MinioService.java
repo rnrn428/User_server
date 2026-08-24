@@ -1,6 +1,7 @@
 package site.yesaido.user_server.domain.user.service;
 
 import io.minio.*;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,7 +13,6 @@ import site.yesaido.user_server.domain.inquiry.exception.FileStorageException;
 import site.yesaido.user_server.domain.inquiry.exception.FileUploadException;
 import site.yesaido.user_server.domain.inquiry.exception.InvalidFileException;
 
-import javax.annotation.PostConstruct;
 import java.io.InputStream;
 import java.util.Set;
 import java.util.UUID;

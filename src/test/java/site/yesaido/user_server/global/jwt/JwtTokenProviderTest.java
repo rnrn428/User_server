@@ -36,6 +36,21 @@ class JwtTokenProviderTest {
     }
 
     @Test
+    @DisplayName("성공 : Access Token에서 실제 만료 시각을 추출한다")
+    void getExpirationTime_success() {
+        long beforeIssue = System.currentTimeMillis();
+        String accessToken = jwtTokenProvider.createAccessToken(1L, Role.USER);
+
+        long expirationTime = jwtTokenProvider.getExpirationTime(accessToken);
+
+        assertThat(expirationTime).isBetween(
+                // JWT exp 클레임은 초 단위로 저장되므로, 최대 999ms 정도 작아질 수 있다.
+                beforeIssue + 1_800_000L - 1_000L,
+                System.currentTimeMillis() + 1_800_000L
+        );
+    }
+
+    @Test
     @DisplayName("성공 : Refresh Token이 정상 생성된다")
     void createRefreshToken_success() {
         Long userId = 1L;

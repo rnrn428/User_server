@@ -17,7 +17,7 @@ import site.yesaido.user_server.global.common.ApiResponse;
 import site.yesaido.user_server.global.common.PageRequestValidator;
 
 @RestController
-@RequestMapping("/api/admin/inquiries")
+@RequestMapping("/api/v1/admin/inquiries")
 @RequiredArgsConstructor
 public class AdminInquiryController {
     private final InquiryService inquiryService;

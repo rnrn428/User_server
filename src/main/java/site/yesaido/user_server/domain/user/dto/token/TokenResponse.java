@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import site.yesaido.user_server.domain.user.entity.en.Role;
 
+
 @Getter
 @Builder
 @NoArgsConstructor
@@ -15,4 +16,5 @@ public class TokenResponse {
     private String accessToken;
     private String refreshToken;
     private Role role;
+    private Long accessTokenExpiresAt;
 }

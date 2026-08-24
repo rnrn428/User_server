@@ -5,9 +5,6 @@ spring:
     import: optional:file:.env[.properties]
 
   cloud:
-    kubernetes:
-      discovery:
-        enabled: ${K8S_DISCOVERY_ENABLED:false}
     openfeign:
       autoconfiguration:
         jackson:
@@ -56,13 +53,19 @@ spring:
             class: javax.net.ssl.SSLSocketFactory
             fallback: false
 
-eureka:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_SECRET}
+
+feign:
   client:
-    enabled: ${EUREKA_ENABLED:false}
-    service-url:
-      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
-  instance:
-    prefer-ip-address: true
+    cultivation:
+      url: ${CULTIVATION_SERVER_URL}
+
 
 minio:
   url: ${MINIO_URL}

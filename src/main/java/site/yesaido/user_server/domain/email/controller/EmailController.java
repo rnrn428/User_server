@@ -13,7 +13,7 @@ import site.yesaido.user_server.domain.email.service.EmailService;
 import site.yesaido.user_server.global.common.ApiResponse;
 
 @RestController
-@RequestMapping("/api/auth/email")
+@RequestMapping("/api/v1/auth/email")
 @RequiredArgsConstructor
 public class EmailController {
     private final EmailService emailService;

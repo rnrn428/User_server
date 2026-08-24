@@ -93,7 +93,6 @@ public class AuthService {
         if (graceResponse != null) {
             return graceResponse;
         }
-
         throw new InvalidTokenException("레디스 토큰과 일치하지 않습니다. (로그아웃 또는 해킹 위험이 있습니다.)");
     }
 
@@ -135,6 +134,9 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .role(user.getRole())
+                .accessTokenExpiresAt(
+                        jwtTokenProvider.getExpirationTime(accessToken)
+                )
                 .build();
     }
 
@@ -151,6 +153,9 @@ public class AuthService {
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
                 .role(user.getRole())
+                .accessTokenExpiresAt(
+                        jwtTokenProvider.getExpirationTime(newAccessToken)
+                )
                 .build();
 
         saveGraceResponse(oldRefreshToken, response);
@@ -158,7 +163,7 @@ public class AuthService {
     }
 
     private void saveGraceResponse(String oldRefreshToken, TokenResponse response) {
-        String value = response.getAccessToken() + "|" + response.getRefreshToken() + "|" + response.getRole();
+        String value = response.getAccessToken() + "|" + response.getRefreshToken() + "|" + response.getRole() + "|" + response.getAccessTokenExpiresAt();
         stringRedisTemplate.opsForValue().set(GRACE_KEY_PREFIX + oldRefreshToken, value, GRACE_PERIOD);
     }
 
@@ -168,8 +173,8 @@ public class AuthService {
             return null;
         }
 
-        String[] parts = value.split("\\|", 3);
-        if (parts.length != 3) {
+        String[] parts = value.split("\\|", 4);
+        if (parts.length != 4) {
             return null;
         }
 
@@ -183,6 +188,7 @@ public class AuthService {
                 .accessToken(parts[0])
                 .refreshToken(graceRefreshToken)
                 .role(Role.valueOf(parts[2]))
+                .accessTokenExpiresAt(Long.parseLong(parts[3]))
                 .build();
     }
 }
