@@ -37,7 +37,7 @@ class AdminUserControllerTest {
     void getMembers_success() {
         Pageable pageable = PageRequest.of(0, 8);
         Page<MemberSummaryResponse> page = new PageImpl<>(List.of(mock(MemberSummaryResponse.class)));
-        given(userService.getMembers(eq(99L), eq("active"), eq(pageable))).willReturn(page);
+        given(userService.getMembers(99L, "active", pageable)).willReturn(page);
 
         ResponseEntity<ApiResponse<Page<MemberSummaryResponse>>> response =
                 adminUserController.getMembers(99L, "active", pageable);
