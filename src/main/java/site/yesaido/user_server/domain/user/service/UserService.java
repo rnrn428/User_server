@@ -2,6 +2,8 @@ package site.yesaido.user_server.domain.user.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,6 +11,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import site.yesaido.user_server.domain.user.dto.MemberSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
@@ -17,6 +20,7 @@ import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
 import site.yesaido.user_server.domain.user.entity.ProfileImage;
 import site.yesaido.user_server.domain.user.entity.User;
+import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
 import site.yesaido.user_server.domain.user.exception.*;
 import site.yesaido.user_server.domain.user.repository.ProfileImageRepository;
@@ -158,6 +162,21 @@ public class UserService {
                 .toList();
     }
 
+    // 관리자 페이지용 유저 조회
+    public Page<MemberSummaryResponse> getMembers(Long adminUserId, String statusFilter, Pageable pageable) {
+        requireAdmin(adminUserId);
+
+        Page<User> users;
+        if ("withdrawn".equalsIgnoreCase(statusFilter)) {
+                users = userRepository.findAllByStatus(UserStatus.DELETED, pageable);
+        } else if ("active".equalsIgnoreCase(statusFilter)) {
+            users = userRepository.findAllByStatusNot(UserStatus.DELETED, pageable);
+        } else {
+            throw new IllegalArgumentException("지원하지 않는 회원 상태입니다.");
+        }
+        return users.map(MemberSummaryResponse::from);
+    }
+
     private String replaceProfileImage(User user, String newObjectKey){
         return profileImageRepository.findByUserId(user.getId())
                 .map(profileImage -> {
@@ -190,6 +209,12 @@ public class UserService {
         );
     }
 
-
+    private void requireAdmin(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+        if (user.getRole() != Role.ADMIN) {
+            throw new UserAccessDeniedException();
+        }
+    }
 
 }

@@ -85,6 +85,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
+    @ExceptionHandler(UserAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleUserAccessDeniedException(UserAccessDeniedException e, HttpServletRequest request){
+        logWarnFormat(HttpStatus.FORBIDDEN, e, request);
+        return buildResponse(HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
     // 500
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception e, HttpServletRequest request){

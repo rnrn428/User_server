@@ -2,6 +2,7 @@ package site.yesaido.user_server.global.exception;
 
 import lombok.Builder;
 import lombok.Getter;
+
 import java.time.LocalDateTime;
 
 @Getter
