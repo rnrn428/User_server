@@ -166,9 +166,14 @@ public class UserService {
     public Page<MemberSummaryResponse> getMembers(Long adminUserId, String statusFilter, Pageable pageable) {
         requireAdmin(adminUserId);
 
-        Page<User> users = "withdrawn".equalsIgnoreCase(statusFilter)
-                ? userRepository.findAllByStatus(UserStatus.DELETED, pageable)
-                : userRepository.findAllByStatusNot(UserStatus.DELETED, pageable);
+        Page<User> users;
+        if ("withdrawn".equalsIgnoreCase(statusFilter)) {
+                users = userRepository.findAllByStatus(UserStatus.DELETED, pageable);
+        } else if ("active".equalsIgnoreCase(statusFilter)) {
+            users = userRepository.findAllByStatusNot(UserStatus.DELETED, pageable);
+        } else {
+            throw new IllegalArgumentException("지원하지 않는 회원 상태입니다.");
+        }
         return users.map(MemberSummaryResponse::from);
     }
 
