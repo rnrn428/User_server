@@ -1,5 +1,7 @@
 package site.yesaido.user_server.domain.user.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,4 +28,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u WHERE u.status = :status AND (u.lastLoginAt <= :cutoffDate OR (u.lastLoginAt IS NULL AND u.createdAt <= :cutoffDate))")
     List<User> findDormantCandidates(@Param("status") UserStatus status, @Param("cutoffDate")LocalDateTime cutoffDate);
+
+    // 활성화된 유저
+    Page<User> findAllByStatusNot(UserStatus status, Pageable pageable);
+    // 탈퇴된 유저
+    Page<User> findAllByStatus(UserStatus status, Pageable pageable);
 }
