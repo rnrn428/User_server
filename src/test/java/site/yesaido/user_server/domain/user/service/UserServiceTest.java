@@ -7,7 +7,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import site.yesaido.user_server.domain.user.dto.MemberSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
@@ -17,16 +22,14 @@ import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
 import site.yesaido.user_server.domain.user.entity.User;
 import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
-import site.yesaido.user_server.domain.user.exception.AlreadyWithdrawnException;
-import site.yesaido.user_server.domain.user.exception.EmailDuplicationException;
-import site.yesaido.user_server.domain.user.exception.NicknameDuplicationException;
-import site.yesaido.user_server.domain.user.exception.UserNotFoundException;
+import site.yesaido.user_server.domain.user.exception.*;
 import site.yesaido.user_server.domain.user.repository.UserRepository;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -453,7 +456,75 @@ class UserServiceTest {
         assertThat(result.getFirst().nickname()).isEqualTo("닉네임1");
     }
 
+    @Nested
+    @DisplayName("관리자 회원 목록 조회 테스트")
+    class getMembersTest {
 
+        @Test
+        @DisplayName("성공 : status=active면 탈퇴하지 않은 회원을 조회한다")
+        void getMembers_active_success() {
+            Long adminId = 99L;
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            User member = User.builder().id(1L).nickName("닉네임").email("nick@test.com").status(UserStatus.ACTIVE).build();
+            Pageable pageable = PageRequest.of(0, 8);
+            Page<User> page = new PageImpl<>(List.of(member));
+
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+            given(userRepository.findAllByStatusNot(UserStatus.DELETED, pageable)).willReturn(page);
+
+            Page<MemberSummaryResponse> result = userService.getMembers(adminId, "active", pageable);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().getFirst().nickname()).isEqualTo("닉네임");
+            verify(userRepository, never()).findAllByStatus(any(), any());
+        }
+
+        @Test
+        @DisplayName("성공 : status=withdrawn이면 탈퇴 회원만 조회한다")
+        void getMembers_withdrawn_success() {
+            Long adminId = 99L;
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            User withdrawnMember = User.builder().id(2L).nickName("탈퇴닉네임").status(UserStatus.DELETED).build();
+            Pageable pageable = PageRequest.of(0, 8);
+            Page<User> page = new PageImpl<>(List.of(withdrawnMember));
+
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+            given(userRepository.findAllByStatus(UserStatus.DELETED, pageable)).willReturn(page);
+
+            Page<MemberSummaryResponse> result = userService.getMembers(adminId, "withdrawn", pageable);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().getFirst().nickname()).isEqualTo("탈퇴닉네임");
+            verify(userRepository, never()).findAllByStatusNot(any(), any());
+        }
+
+        @Test
+        @DisplayName("예외 - 일반 유저가 회원 목록 조회 시도 시 UserAccessDeniedException")
+        void getMembers_notAdmin_throwsException() {
+            Long userId = 1L;
+            User normalUser = User.builder().id(userId).role(Role.USER).build();
+            Pageable pageable = PageRequest.of(0, 8);
+
+            given(userRepository.findById(userId)).willReturn(Optional.of(normalUser));
+
+            assertThatThrownBy(() -> userService.getMembers(userId, "active", pageable))
+                    .isInstanceOf(UserAccessDeniedException.class);
+
+            verify(userRepository, never()).findAllByStatusNot(any(), any());
+        }
+
+        @Test
+        @DisplayName("예외 - 존재하지 않는 관리자 ID로 조회 시 UserNotFoundException")
+        void getMembers_adminNotFound_throwsException() {
+            Long adminId = 999L;
+            Pageable pageable = PageRequest.of(0, 8);
+
+            given(userRepository.findById(adminId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userService.getMembers(adminId, "active", pageable))
+                    .isInstanceOf(UserNotFoundException.class);
+        }
+    }
 }
 
 
