@@ -226,6 +226,15 @@ public class InquiryServiceImpl implements InquiryService {
 
     }
 
+    @Override
+    public boolean canAccessInquiry(Long userId, Long inquiryId) {
+        return inquiryRepository.findById(inquiryId).map(inquiry -> inquiry.getUserId().equals(userId) || isAdmin(userId)).orElse(false);
+    }
+
+    private boolean isAdmin(Long userId){
+        return userRepository.findById(userId).map(user -> user.getRole() == Role.ADMIN).orElse(false);
+    }
+
     private String resolveUserNickname(Long userId) {
         return userRepository.findById(userId).map(User::getNickName).orElse("알 수 없음");
     }
