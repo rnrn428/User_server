@@ -25,6 +25,7 @@ import site.yesaido.user_server.domain.user.entity.en.UserStatus;
 import site.yesaido.user_server.domain.user.exception.*;
 import site.yesaido.user_server.domain.user.repository.ProfileImageRepository;
 import site.yesaido.user_server.domain.user.repository.UserRepository;
+import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
 
 import java.util.Collections;
 import java.util.List;
@@ -38,6 +39,7 @@ public class UserService {
     private final MinioService minioService;
     private final ProfileImageRepository profileImageRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
 
     @Transactional
     public UserSignResponse signUp(UserSignUpRequest signUpRequestDto){
@@ -56,7 +58,7 @@ public class UserService {
                 .password(encodedPassword)
                 .nickName(signUpRequestDto.getNickName())
                 .status(UserStatus.ACTIVE)
-                .emailVerified(false)
+                .emailVerified(true)
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -132,9 +134,18 @@ public class UserService {
     }
 
     @Transactional
-    public void withdraw(Long userId) {
+    public void withdraw(Long userId, String password) {
         User user = getUserById(userId);
+        if(user.getPassword() == null){
+            throw new InvalidPasswordException("소셜 로그인 계정은 비밀번호로 탈퇴할 수 없습니다.");
+        }
+
+        if(!passwordEncoder.matches(password, user.getPassword())){
+            throw new InvalidPasswordException("비밀번호가 일치하지 않습니다.");
+        }
+
         user.withdraw();
+        refreshTokenService.revokeAllRefreshTokens(userId);
     }
 
     public boolean existsEmail(String email){

@@ -26,4 +26,6 @@ public interface InquiryService {
     InquiryDetailResponse answerMessage(Long adminUserId, Long answerId, InquiryMessageRequest request);
 
     InquiryCategoryResponse createCategory(Long adminId, InquiryCategoryCreateRequest request);
+
+    boolean canAccessInquiry(Long userId, Long inquiryId);
 }

@@ -8,6 +8,7 @@ import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "users")
@@ -16,6 +17,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class User {
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -57,7 +60,6 @@ public class User {
     @Column(name = "deleted_at", nullable = true)
     private LocalDateTime deletedAt;
 
-
     // 로컬 가입용
     public User(String email, String password, String nickname){
         this.email = email;
@@ -83,7 +85,7 @@ public class User {
     }
 
     public void updateLastLoginAt(){
-        this.lastLoginAt = LocalDateTime.now();
+        this.lastLoginAt = LocalDateTime.now(KOREA_ZONE);
     }
 
     public void updatePassword(String password){
@@ -96,12 +98,12 @@ public class User {
 
     public void activate(){
         this.status = UserStatus.ACTIVE;
-        this.lastLoginAt = LocalDateTime.now();
+        this.lastLoginAt = LocalDateTime.now(KOREA_ZONE);
     }
 
     public void withdraw(){
         this.status = UserStatus.DELETED;
-        this.deletedAt = LocalDateTime.now();
+        this.deletedAt = LocalDateTime.now(KOREA_ZONE);
     }
 
 

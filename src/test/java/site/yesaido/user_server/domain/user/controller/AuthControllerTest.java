@@ -9,6 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import site.yesaido.user_server.domain.user.dto.login.LoginRequest;
+import site.yesaido.user_server.domain.user.dto.login.PasswordResetRequest;
+import site.yesaido.user_server.domain.user.dto.token.LogoutRequest;
 import site.yesaido.user_server.domain.user.dto.token.ReissueRequest;
 import site.yesaido.user_server.domain.user.dto.token.TokenResponse;
 import site.yesaido.user_server.domain.user.service.AuthService;
@@ -66,18 +68,30 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("로그아웃 성공 시 200 OK와 내용 없음을 반환한다")
+    @DisplayName("Refresh Token 로그아웃에 성공하면 204를 반환한다")
     void logout_success(){
-        Long userId = 1L;
 
-        ResponseEntity<Void> response = authController.logout(userId);
+        LogoutRequest request = new LogoutRequest("refresh-token", "access-token");
+
+        ResponseEntity<Void> response = authController.logout(request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        verify(authService).logout(userId);
+        verify(authService).logout("refresh-token", "access-token");
+    }
+
+    @Test
+    @DisplayName("비밀번호 재설정 성공 시 200 OK와 성공 메시지를 반환한다")
+    void resetPassword_success() {
+        PasswordResetRequest request = new PasswordResetRequest("test@test.com", "newPassword123!");
+
+        ResponseEntity<ApiResponse<Void>> response = authController.resetPassword(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).isEqualTo("비밀번호가 변경되었습니다.");
+        verify(authService).resetPassword(request);
     }
 }
-
-
 
 
 

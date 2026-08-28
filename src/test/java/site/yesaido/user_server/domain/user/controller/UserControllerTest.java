@@ -15,6 +15,7 @@ import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
+import site.yesaido.user_server.domain.user.dto.withdraw.WithdrawRequest;
 import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
 import site.yesaido.user_server.domain.user.service.UserService;
@@ -26,6 +27,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class UserControllerTest {
@@ -190,5 +192,18 @@ class UserControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data()).isTrue();
+    }
+
+    @Test
+    @DisplayName("회원 탈퇴 요청 시 비밀번호를 검증하는 서비스에 위임하고 성공 응답을 반환한다")
+    void withdraw_success() {
+        WithdrawRequest request = new WithdrawRequest("password123!");
+
+        ResponseEntity<ApiResponse<Void>> response = userController.withdraw(1L, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).isEqualTo("회원 탈퇴가 완료되었습니다.");
+        verify(userService).withdraw(1L, "password123!");
     }
 }

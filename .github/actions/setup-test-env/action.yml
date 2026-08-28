@@ -18,6 +18,7 @@ runs:
         echo "REDIS_HOST=localhost" >> "$GITHUB_ENV"
         echo "REDIS_PORT=6379" >> "$GITHUB_ENV"
         echo "REDIS_PASSWORD=" >> "$GITHUB_ENV"
+        echo "REDIS_DATABASE=310" >> "$GITHUB_ENV"
         
         echo "MAIL_USERNAME=test@naver.com" >> "$GITHUB_ENV"
         echo "MAIL_PASSWORD=testpassword" >> "$GITHUB_ENV"
@@ -30,3 +31,7 @@ runs:
         
         # Client
         echo "CULTIVATION_SERVER_URL=http://localhost:8084" >> "$GITHUB_ENV"
+        
+        # Google
+        echo "GOOGLE_CLIENT_ID=ci-google-client-id" >> "$GITHUB_ENV"
+        echo "GOOGLE_SECRET=ci-google-client-secret" >> "$GITHUB_ENV"
