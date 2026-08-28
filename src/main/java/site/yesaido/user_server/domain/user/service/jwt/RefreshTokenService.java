@@ -61,11 +61,10 @@ public class RefreshTokenService {
         String userTokenKey = getUserTokenSetRedisKey(userId);
         Set<String> tokenHashes = redisTemplate.opsForSet().members(userTokenKey);
 
-        if(tokenHashes != null){
-            for(String tokenHash : tokenHashes){
-                redisTemplate.delete(getTokenRedisKey(tokenHash));
-            }
+        for(String tokenHash : tokenHashes){
+            redisTemplate.delete(getTokenRedisKey(tokenHash));
         }
+        
         redisTemplate.delete(userTokenKey);
     }
 
