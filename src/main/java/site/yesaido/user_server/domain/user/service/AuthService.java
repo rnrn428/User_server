@@ -114,7 +114,7 @@ public class AuthService {
     @Transactional
     public void resetPassword(PasswordResetRequest resetRequest){
         User user = userRepository.findByEmail(resetRequest.email().trim())
-                .orElseThrow(() -> new UserNotFoundException("존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new UserNotFoundException("없는 사용자입니다."));
 
         if(UserStatus.DELETED.equals(user.getStatus())){
             throw new AlreadyWithdrawnException();

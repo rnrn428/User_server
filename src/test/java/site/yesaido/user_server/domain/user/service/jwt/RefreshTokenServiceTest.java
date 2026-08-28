@@ -46,8 +46,7 @@ class RefreshTokenServiceTest {
         verify(valueOperations).set("RT:token:" + tokenHash, "1", Duration.ofMillis(1_000L));
         verify(setOperations).add("RT:user:1:tokens", tokenHash);
         verify(redisTemplate).expire("RT:user:1:tokens", Duration.ofMillis(1_000L));
-        assertThat(refreshToken).isNotBlank();
-        assertThat(refreshToken).isNotEqualTo(tokenHash);
+        assertThat(refreshToken).isNotBlank().isNotEqualTo(tokenHash);
     }
 
     @Test
