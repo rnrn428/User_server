@@ -90,7 +90,7 @@ public class UserController {
     }
 
     // 8. 회원 탈퇴
-    @PostMapping("/withdraw")
+    @DeleteMapping("/withdraw")
     public ResponseEntity<ApiResponse<Void>> withdraw(@RequestHeader("X-User-Id") Long userId, @Valid @RequestBody WithdrawRequest request){
         userService.withdraw(userId, request.password());
         ApiResponse<Void> apiResponse = ApiResponse.ok("회원 탈퇴가 완료되었습니다.");
