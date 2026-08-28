@@ -58,7 +58,7 @@ public class UserController {
     }
 
     // 5. 프로필 수정
-    @PostMapping("/mypage")
+    @PutMapping("/mypage")
     public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(@RequestHeader("X-User-Id") Long userId, @Valid @RequestBody ProfileUpdateRequest request){
         UserProfileResponse response = userService.updateProfile(userId, request);
         ApiResponse<UserProfileResponse> apiResponse = ApiResponse.ok("프로필 수정 성공", response);
@@ -66,7 +66,7 @@ public class UserController {
     }
 
     // 6. 프로필 이미지
-    @PostMapping(value = "/mypage/profile-image",
+    @PutMapping(value = "/mypage/profile-image",
                 consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<String>> uploadProfileImage(
             @RequestHeader("X-User-Id") Long userId,
