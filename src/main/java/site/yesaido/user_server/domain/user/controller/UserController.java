@@ -13,6 +13,7 @@ import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
+import site.yesaido.user_server.domain.user.dto.withdraw.WithdrawRequest;
 import site.yesaido.user_server.domain.user.service.UserService;
 import site.yesaido.user_server.global.common.ApiResponse;
 
@@ -85,6 +86,14 @@ public class UserController {
             @Valid @RequestBody PasswordVerifyRequest request){
         boolean isValid = userService.verifyPassword(userId, request.password());
         ApiResponse<Boolean> apiResponse = ApiResponse.ok("비밀번호 다시 확인해주세요", isValid);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
+
+    // 8. 회원 탈퇴
+    @PostMapping("/withdraw")
+    public ResponseEntity<ApiResponse<Void>> withdraw(@RequestHeader("X-User-Id") Long userId, @Valid @RequestBody WithdrawRequest request){
+        userService.withdraw(userId, request.password());
+        ApiResponse<Void> apiResponse = ApiResponse.ok("회원 탈퇴가 완료되었습니다.");
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 

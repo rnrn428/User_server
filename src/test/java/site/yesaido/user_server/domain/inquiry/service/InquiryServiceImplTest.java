@@ -398,8 +398,62 @@ class InquiryServiceImplTest {
         }
     }
 
-}
+    @Nested
+    @DisplayName("문의 접근 권한 검증 테스트")
+    class InquiryAccessTest {
 
+        @Test
+        @DisplayName("문의 작성자는 관리자 여부 조회 없이 접근이 허용된다")
+        void canAccessInquiry_ownerReturnsTrue() {
+            Long userId = 1L;
+            Inquiry inquiry = Inquiry.builder().id(10L).userId(userId).title("내 문의").build();
+            given(inquiryRepository.findById(10L)).willReturn(Optional.of(inquiry));
+
+            boolean allowed = inquiryService.canAccessInquiry(userId, 10L);
+
+            assertThat(allowed).isTrue();
+            verify(userRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("관리자는 다른 사용자의 문의에도 접근이 허용된다")
+        void canAccessInquiry_adminReturnsTrue() {
+            User admin = User.builder().id(99L).role(Role.ADMIN).build();
+            Inquiry inquiry = Inquiry.builder().id(10L).userId(1L).title("다른 사람 문의").build();
+            given(inquiryRepository.findById(10L)).willReturn(Optional.of(inquiry));
+            given(userRepository.findById(99L)).willReturn(Optional.of(admin));
+
+            boolean allowed = inquiryService.canAccessInquiry(99L, 10L);
+
+            assertThat(allowed).isTrue();
+        }
+
+        @Test
+        @DisplayName("문의 작성자도 관리자도 아니면 접근이 거절된다")
+        void canAccessInquiry_nonOwnerUserReturnsFalse() {
+            User user = User.builder().id(2L).role(Role.USER).build();
+            Inquiry inquiry = Inquiry.builder().id(10L).userId(1L).title("다른 사람 문의").build();
+            given(inquiryRepository.findById(10L)).willReturn(Optional.of(inquiry));
+            given(userRepository.findById(2L)).willReturn(Optional.of(user));
+
+            boolean allowed = inquiryService.canAccessInquiry(2L, 10L);
+
+            assertThat(allowed).isFalse();
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 문의는 접근이 거절된다")
+        void canAccessInquiry_missingInquiryReturnsFalse() {
+            given(inquiryRepository.findById(999L)).willReturn(Optional.empty());
+
+            boolean allowed = inquiryService.canAccessInquiry(1L, 999L);
+
+            assertThat(allowed).isFalse();
+            verify(userRepository, never()).findById(any());
+        }
+    }
+
+}
 
 
 

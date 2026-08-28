@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import site.yesaido.user_server.domain.inquiry.dto.request.InquiryCreateRequest;
 import site.yesaido.user_server.domain.inquiry.dto.request.InquiryMessageRequest;
+import site.yesaido.user_server.domain.inquiry.dto.response.InquiryAccessResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryCategoryResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryDetailResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquirySummaryResponse;
@@ -65,6 +66,14 @@ public class InquiryController {
                                                                           @Valid @RequestBody InquiryMessageRequest request) {
         InquiryDetailResponse response = inquiryService.addFollowUp(userId, inquiryId, request);
         ApiResponse<InquiryDetailResponse> apiResponse = ApiResponse.ok("추가 질문이 등록되었습니다.", response);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
+
+    @GetMapping("/{inquiry-id}/access")
+    public ResponseEntity<ApiResponse<InquiryAccessResponse>> checkInquiryAccess(@RequestHeader("X-User-Id") Long userId,
+                                                                                 @PathVariable("inquiry-id") Long inquiryId){
+        boolean allowed = inquiryService.canAccessInquiry(userId, inquiryId);
+        ApiResponse<InquiryAccessResponse> apiResponse = ApiResponse.ok("문의 접근 권한 검증 결과입니다.", new InquiryAccessResponse(allowed));
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 }

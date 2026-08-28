@@ -1,7 +1,6 @@
 package site.yesaido.user_server.domain.user.service;
 
 import io.minio.*;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +59,8 @@ public class MinioService {
     private String uploadImage(MultipartFile file, String objectName){
         validateFile(file);
         validateFileSize(file.getSize());
+        ensureBucketExists();
+
         try (InputStream inputStream = file.getInputStream()) {
 
             minioClient.putObject(
@@ -145,7 +146,6 @@ public class MinioService {
         }
     }
 
-    @PostConstruct
     public void ensureBucketExists(){
         try{
             boolean exists = minioClient.bucketExists(
