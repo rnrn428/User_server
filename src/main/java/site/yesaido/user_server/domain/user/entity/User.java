@@ -17,6 +17,8 @@ import java.time.ZoneId;
 @AllArgsConstructor
 @Builder
 public class User {
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -58,7 +60,6 @@ public class User {
     @Column(name = "deleted_at", nullable = true)
     private LocalDateTime deletedAt;
 
-    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
     // 로컬 가입용
     public User(String email, String password, String nickname){
         this.email = email;
@@ -93,10 +94,6 @@ public class User {
 
     public void changeToDormant(){
         this.status = UserStatus.DORMANT;
-    }
-
-    public void change_email_verified(){
-        this.emailVerified = true;
     }
 
     public void activate(){
