@@ -24,6 +24,7 @@ import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
 import site.yesaido.user_server.domain.user.exception.*;
 import site.yesaido.user_server.domain.user.repository.UserRepository;
+import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
 
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +50,9 @@ class UserServiceTest {
 
     @Mock
     private site.yesaido.user_server.domain.user.repository.ProfileImageRepository profileImageRepository;
+
+    @Mock
+    private RefreshTokenService refreshTokenService;
 
     @InjectMocks
     private UserService userService;
@@ -356,22 +360,79 @@ class UserServiceTest {
 
     @Nested
     @DisplayName("회원 탈퇴 테스트")
-    class withDrawnTest{
+    class WithdrawTest {
         @Test
-        @DisplayName("성공 : 회원 탈퇴 시 상태가 DELETED로 바뀌고 deletedAt이 기록된다")
-        void success_withdraw(){
+        @DisplayName("올바른 비밀번호로 탈퇴하면 Soft Delete 처리하고 모든 Refresh Token을 폐기한다")
+        void withdrawWithValidPassword_softDeletesAndRevokesRefreshTokens() {
             User user = User.builder()
                     .id(1L)
                     .email("rnrn428@naver.com")
+                    .password("encoded-password")
                     .status(UserStatus.ACTIVE)
                     .build();
 
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(passwordEncoder.matches("raw-password", "encoded-password")).willReturn(true);
 
-            userService.withdraw(1L);
+            userService.withdraw(1L, "raw-password");
 
             assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
             assertThat(user.getDeletedAt()).isNotNull();
+            verify(refreshTokenService).revokeAllRefreshTokens(1L);
+        }
+
+        @Test
+        @DisplayName("비밀번호가 일치하지 않으면 탈퇴하지 않고 Refresh Token도 유지한다")
+        void withdrawWithWrongPassword_throwsException() {
+            User user = User.builder()
+                    .id(1L)
+                    .password("encoded-password")
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(passwordEncoder.matches("wrong-password", "encoded-password")).willReturn(false);
+
+            assertThatThrownBy(() -> userService.withdraw(1L, "wrong-password"))
+                    .isInstanceOf(InvalidPasswordException.class)
+                    .hasMessage("비밀번호가 일치하지 않습니다.");
+
+            assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+            verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
+        }
+
+        @Test
+        @DisplayName("소셜 로그인 계정은 비밀번호 방식으로 탈퇴할 수 없다")
+        void withdrawSocialLoginUser_throwsException() {
+            User socialUser = User.builder()
+                    .id(1L)
+                    .password(null)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            given(userRepository.findById(1L)).willReturn(Optional.of(socialUser));
+
+            assertThatThrownBy(() -> userService.withdraw(1L, "any-password"))
+                    .isInstanceOf(InvalidPasswordException.class)
+                    .hasMessage("소셜 로그인 계정은 비밀번호로 탈퇴할 수 없습니다.");
+
+            verify(passwordEncoder, never()).matches(any(), any());
+            verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
+        }
+
+        @Test
+        @DisplayName("이미 탈퇴한 회원은 다시 탈퇴할 수 없다")
+        void withdrawAlreadyDeletedUser_throwsException() {
+            User user = User.builder()
+                    .id(1L)
+                    .password("encoded-password")
+                    .status(UserStatus.DELETED)
+                    .build();
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+            assertThatThrownBy(() -> userService.withdraw(1L, "raw-password"))
+                    .isInstanceOf(AlreadyWithdrawnException.class);
+
+            verify(passwordEncoder, never()).matches(any(), any());
+            verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
         }
     }
 
@@ -526,7 +587,6 @@ class UserServiceTest {
         }
     }
 }
-
 
 
 

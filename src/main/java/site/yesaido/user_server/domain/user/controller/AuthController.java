@@ -6,7 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import site.yesaido.user_server.domain.user.dto.login.LoginRequest;
+import site.yesaido.user_server.domain.user.dto.login.PasswordResetRequest;
 import site.yesaido.user_server.domain.user.dto.oauth.GoogleLoginRequest;
+import site.yesaido.user_server.domain.user.dto.token.LogoutRequest;
 import site.yesaido.user_server.domain.user.dto.token.ReissueRequest;
 import site.yesaido.user_server.domain.user.dto.token.TokenResponse;
 import site.yesaido.user_server.domain.user.service.AuthService;
@@ -34,8 +36,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestHeader("X-User-Id") Long userId){
-        authService.logout(userId);
+    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request){
+        authService.logout(request.refreshToken(), request.accessToken());
         return ResponseEntity.noContent().build();
     }
 
@@ -51,6 +53,14 @@ public class AuthController {
         TokenResponse response = authService.loginWithGoogle(request);
         ApiResponse<TokenResponse> apiResponse = ApiResponse.ok("구글 소셜 로그인에 성공하였습니다.", response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody PasswordResetRequest resetRequest){
+        authService.resetPassword(resetRequest);
+
+        ApiResponse<Void> response = ApiResponse.ok("비밀번호가 변경되었습니다.");
+        return ResponseEntity.status(response.httpStatus()).body(response);
     }
 
 

@@ -2,23 +2,23 @@ package site.yesaido.user_server.domain.user.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import site.yesaido.user_server.domain.user.dto.login.LoginRequest;
+import site.yesaido.user_server.domain.user.dto.login.PasswordResetRequest;
 import site.yesaido.user_server.domain.user.dto.oauth.GoogleLoginRequest;
+import site.yesaido.user_server.domain.user.dto.token.RefreshTokenRotation;
 import site.yesaido.user_server.domain.user.dto.token.TokenResponse;
 import site.yesaido.user_server.domain.user.entity.User;
-import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
 import site.yesaido.user_server.domain.user.exception.*;
 import site.yesaido.user_server.domain.user.repository.UserRepository;
-import site.yesaido.user_server.global.jwt.JwtTokenProvider;
+import site.yesaido.user_server.domain.user.service.jwt.AccessTokenBlacklistService;
+import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenGraceService;
+import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
+import site.yesaido.user_server.global.jwt.AccessTokenProvider;
 import site.yesaido.user_server.global.oauth.GoogleTokenVerifier;
-
-import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -27,12 +27,12 @@ import java.util.concurrent.TimeUnit;
 public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final StringRedisTemplate stringRedisTemplate;
+    private final AccessTokenProvider accessTokenProvider;
+    private final RefreshTokenService refreshTokenService;
+    private final RefreshTokenGraceService refreshTokenGraceService;
+    private final AccessTokenBlacklistService accessTokenBlacklistService;
     private final GoogleTokenVerifier googleTokenVerifier;
 
-    private static final Duration GRACE_PERIOD = Duration.ofSeconds(5);
-    private static final String GRACE_KEY_PREFIX = "RT:grace:";
 
     @Transactional
     public TokenResponse login(LoginRequest request){
@@ -67,7 +67,6 @@ public class AuthService {
 
         User user = userRepository.findByEmail(verifiedEmail)
                 .orElseGet(() -> {
-                    log.info("[구글 신규 소셜 회원가입] 이메일: {}, 닉네임: {}", verifiedEmail, uniqueNickname);
                     User newUser = new User(verifiedEmail, uniqueNickname);
                     return userRepository.save(newUser);
                 });
@@ -76,29 +75,32 @@ public class AuthService {
     }
 
 
+    @Transactional
     public TokenResponse reissue(String refreshToken){
-        if(!jwtTokenProvider.validateToken(refreshToken)){
-            throw new InvalidTokenException("유효하지 않거나 만료된 RefreshToken 입니다.");
+        RefreshTokenRotation rotation;
+        try{
+            rotation = refreshTokenService.rotateRefreshToken(refreshToken);
+        }catch (InvalidTokenException e){
+            return refreshTokenGraceService.findReissueResponse(refreshToken)
+                    .filter(response -> refreshTokenService.isRefreshTokenActive(
+                            response.getRefreshToken()
+                            )
+                    ).orElseThrow(() -> e);
         }
+        User user = userRepository.findById(rotation.userId()).orElseThrow(() -> new UserNotFoundException("유저를 찾을 수 없습니다."));
 
-        Long userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+        TokenResponse response = buildTokenResponse(user, rotation.refreshToken());
 
-        String savedRefreshToken = stringRedisTemplate.opsForValue().get("RT:" + userId);
-
-        if(refreshToken.equals(savedRefreshToken)) {
-            return rotateRefreshToken(userId, refreshToken);
-        }
-
-        TokenResponse graceResponse = readGraceResponse(userId, refreshToken);
-        if (graceResponse != null) {
-            return graceResponse;
-        }
-        throw new InvalidTokenException("레디스 토큰과 일치하지 않습니다. (로그아웃 또는 해킹 위험이 있습니다.)");
+        refreshTokenGraceService.saveReissueResponse(refreshToken, response);
+        return response;
     }
 
     @Transactional
-    public void logout(Long userId){
-        stringRedisTemplate.delete("RT:" + userId);
+    public void logout(String refreshToken, String accessToken){
+        refreshTokenService.revokeRefreshToken(refreshToken);
+        if (accessToken != null && !accessToken.isBlank()){
+            accessTokenBlacklistService.blacklist(accessToken);
+        }
     }
 
     @Transactional
@@ -109,7 +111,37 @@ public class AuthService {
         user.activate();
     }
 
+    @Transactional
+    public void resetPassword(PasswordResetRequest resetRequest){
+        User user = userRepository.findByEmail(resetRequest.email().trim())
+                .orElseThrow(() -> new UserNotFoundException("없는 사용자입니다."));
+
+        if(UserStatus.DELETED.equals(user.getStatus())){
+            throw new AlreadyWithdrawnException();
+        }
+
+        if(user.getPassword() == null){
+            throw new IllegalArgumentException("소셜 로그인 계정은 비밀번호를 재설정할 수 없습니다.");
+        }
+
+        if(passwordEncoder.matches(resetRequest.newPassword(), user.getPassword())){
+            throw new InvalidPasswordException("새 비밀번호는 기존 비밀번호와 달라야 합니다.");
+        }
+
+        user.updatePassword(passwordEncoder.encode(resetRequest.newPassword()));
+
+        refreshTokenService.revokeAllRefreshTokens(user.getId());
+    }
+
+
     private TokenResponse createTokenResponse(User user){
+        validateLoginAllowed(user);
+        String refreshToken = refreshTokenService.createRefreshTokenForUser(user.getId());
+
+        return buildTokenResponse(user, refreshToken);
+    }
+
+    private TokenResponse buildTokenResponse(User user, String refreshToken){
         if(UserStatus.DELETED.equals(user.getStatus())){
             throw new AlreadyWithdrawnException("탈퇴한 사용자입니다.");
         }
@@ -118,77 +150,25 @@ public class AuthService {
             throw new DormantUserException("휴면 계정입니다. 이메일 인증을 진행해 주세요.");
         }
 
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getRole());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId(), user.getRole());
-
-        stringRedisTemplate.opsForValue().set(
-                "RT:" + user.getId(),
-                refreshToken,
-                14,
-                TimeUnit.DAYS
-        );
-
+        String accessToken = accessTokenProvider.createAccessToken(user.getId(), user.getRole());
         user.updateLastLoginAt();
+
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .role(user.getRole())
-                .accessTokenExpiresAt(
-                        jwtTokenProvider.getExpirationTime(accessToken)
-                )
+                .accessTokenExpiresAt(accessTokenProvider.getExpirationTime(accessToken))
                 .build();
     }
 
-    private TokenResponse rotateRefreshToken(Long userId, String oldRefreshToken) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("유저를 찾을 수 없습니다."));
-
-        String newAccessToken = jwtTokenProvider.createAccessToken(userId, user.getRole());
-        String newRefreshToken = jwtTokenProvider.createRefreshToken(userId, user.getRole());
-
-        stringRedisTemplate.opsForValue().set("RT:" + user.getId(), newRefreshToken, 14, TimeUnit.DAYS);
-
-        TokenResponse response = TokenResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken)
-                .role(user.getRole())
-                .accessTokenExpiresAt(
-                        jwtTokenProvider.getExpirationTime(newAccessToken)
-                )
-                .build();
-
-        saveGraceResponse(oldRefreshToken, response);
-        return response;
+    private void validateLoginAllowed(User user){
+        if(UserStatus.DELETED.equals(user.getStatus())){
+            throw new AlreadyWithdrawnException("탈퇴한 사용자입니다.");
+        }
+        if(UserStatus.DORMANT.equals(user.getStatus())){
+            throw new DormantUserException("휴면 계정입니다. 이메일 인증을 진행해 주세요.");
+        }
     }
 
-    private void saveGraceResponse(String oldRefreshToken, TokenResponse response) {
-        String value = response.getAccessToken() + "|" + response.getRefreshToken() + "|" + response.getRole() + "|" + response.getAccessTokenExpiresAt();
-        stringRedisTemplate.opsForValue().set(GRACE_KEY_PREFIX + oldRefreshToken, value, GRACE_PERIOD);
-    }
-
-    private TokenResponse readGraceResponse(Long userId, String oldRefreshToken){
-        String value = stringRedisTemplate.opsForValue().get(GRACE_KEY_PREFIX + oldRefreshToken);
-        if (value == null) {
-            return null;
-        }
-
-        String[] parts = value.split("\\|", 4);
-        if (parts.length != 4) {
-            return null;
-        }
-
-        String graceRefreshToken = parts[1];
-        String currentRefreshToken = stringRedisTemplate.opsForValue().get("RT:" + userId);
-        if (currentRefreshToken == null || !currentRefreshToken.equals(graceRefreshToken)) {
-            return null;
-        }
-
-        return TokenResponse.builder()
-                .accessToken(parts[0])
-                .refreshToken(graceRefreshToken)
-                .role(Role.valueOf(parts[2]))
-                .accessTokenExpiresAt(Long.parseLong(parts[3]))
-                .build();
-    }
 }

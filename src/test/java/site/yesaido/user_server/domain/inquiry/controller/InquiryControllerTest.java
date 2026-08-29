@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 import site.yesaido.user_server.domain.inquiry.dto.request.InquiryCreateRequest;
 import site.yesaido.user_server.domain.inquiry.dto.request.InquiryMessageRequest;
+import site.yesaido.user_server.domain.inquiry.dto.response.InquiryAccessResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryCategoryResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryDetailResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquirySummaryResponse;
@@ -27,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class InquiryControllerTest {
@@ -105,5 +107,18 @@ class InquiryControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data()).isEqualTo(detailResponse);
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/inquiries/{inquiry-id}/access - 문의 접근 권한 검증 결과 반환")
+    void checkInquiryAccess_success() {
+        given(inquiryService.canAccessInquiry(1L, 10L)).willReturn(true);
+
+        ResponseEntity<ApiResponse<InquiryAccessResponse>> response = inquiryController.checkInquiryAccess(1L, 10L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data().allowed()).isTrue();
+        verify(inquiryService).canAccessInquiry(1L, 10L);
     }
 }

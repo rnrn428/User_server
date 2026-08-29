@@ -33,7 +33,7 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
-      database: 310
+      database: ${REDIS_DATABASE}
       password: ${REDIS_PASSWORD}
 
   mail:
