@@ -99,10 +99,11 @@ class InquiryControllerTest {
     @DisplayName("POST /api/inquiries/{inquiry-id}/messages - 추가 질문 등록 성공")
     void addFollowUp_success() {
         InquiryMessageRequest request = new InquiryMessageRequest("추가 내용");
+        List<MultipartFile> files = List.of(mock(MultipartFile.class));
         InquiryDetailResponse detailResponse = mock(InquiryDetailResponse.class);
-        given(inquiryService.addFollowUp(1L, 10L, request)).willReturn(detailResponse);
+        given(inquiryService.addFollowUp(1L, 10L, request, files)).willReturn(detailResponse);
 
-        ResponseEntity<ApiResponse<InquiryDetailResponse>> response = inquiryController.addFollowUp(1L, 10L, request);
+        ResponseEntity<ApiResponse<InquiryDetailResponse>> response = inquiryController.addFollowUp(1L, 10L, request, files);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();

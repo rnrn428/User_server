@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import site.yesaido.common.storage.StorageType;
 
 @Entity
 @Table(name = "inquiry_photo")
@@ -21,8 +22,9 @@ public class InquiryPhoto {
     @Column(name = "object_key", nullable = false, length = 500)
     private String objectKey;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "storage_type", nullable = false, length = 50)
-    private String storageType;
+    private StorageType storageType;
 
     public static InquiryPhoto create(
             InquiryAnswer inquiryAnswer,
@@ -31,7 +33,7 @@ public class InquiryPhoto {
         InquiryPhoto inquiryPhoto = new InquiryPhoto();
         inquiryPhoto.inquiryAnswer = inquiryAnswer;
         inquiryPhoto.objectKey = objectKey;
-        inquiryPhoto.storageType = "MINIO";
+        inquiryPhoto.storageType = StorageType.MINIO;
 
         if(inquiryAnswer != null){
             inquiryAnswer.addInquiryPhoto(inquiryPhoto);

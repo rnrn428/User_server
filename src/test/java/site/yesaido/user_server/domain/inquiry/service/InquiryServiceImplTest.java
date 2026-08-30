@@ -294,7 +294,7 @@ class InquiryServiceImplTest {
                 given(inquiryAnswerRepository.findAllByInquiryIdOrderByCreatedAtAsc(10L)).willReturn(List.of(rootMessage));
                 given(userRepository.findById(userId)).willReturn(Optional.of(User.builder().id(userId).nickName("닉네임").build()));
 
-                InquiryDetailResponse response = inquiryService.addFollowUp(userId, 10L, request);
+                InquiryDetailResponse response = inquiryService.addFollowUp(userId, 10L, request, null);
 
                 assertThat(response).isNotNull();
                 assertThat(inquiry.getStatus()).isEqualTo(InquiryStatus.PENDING);
@@ -349,7 +349,7 @@ class InquiryServiceImplTest {
                 given(inquiryAnswerRepository.findAllByInquiryIdOrderByCreatedAtAsc(10L)).willReturn(List.of(answer));
                 given(userRepository.findById(1L)).willReturn(Optional.of(User.builder().id(1L).nickName("질문자").build()));
 
-                InquiryDetailResponse response = inquiryService.answerMessage(adminId, 50L, new InquiryMessageRequest("답변입니다."));
+                InquiryDetailResponse response = inquiryService.answerMessage(adminId, 50L, new InquiryMessageRequest("답변입니다."), null);
 
                 assertThat(response).isNotNull();
                 assertThat(inquiry.getStatus()).isEqualTo(InquiryStatus.RESOLVED);

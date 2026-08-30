@@ -74,7 +74,7 @@ public class InquiryServiceImpl implements InquiryService {
 
         saveInquiryPhotos(rootMessage, files);
 
-        return InquiryDetailResponse.of(inquiry, List.of(rootMessage), resolveCultivationName(inquiry), resolveUserNickname(userId));
+        return InquiryDetailResponse.of(inquiry, List.of(rootMessage), resolveCultivationName(inquiry), resolveUserNickname(userId), minioService::presignedGetUrl);
     }
 
     public Page<InquirySummaryResponse> getMyInquiries(Long userId, Pageable pageable) {
@@ -88,7 +88,7 @@ public class InquiryServiceImpl implements InquiryService {
         requireOwner(inquiry, userId);
 
         List<InquiryAnswer> messages = inquiryAnswerRepository.findAllByInquiryIdOrderByCreatedAtAsc(inquiryId);
-        return InquiryDetailResponse.of(inquiry, messages, resolveCultivationName(inquiry), resolveUserNickname(userId));
+        return InquiryDetailResponse.of(inquiry, messages, resolveCultivationName(inquiry), resolveUserNickname(userId), minioService::presignedGetUrl);
     }
 
     @Override
@@ -104,19 +104,20 @@ public class InquiryServiceImpl implements InquiryService {
 
     @Override
     @Transactional
-    public InquiryDetailResponse addFollowUp(Long userId, Long inquiryId, InquiryMessageRequest request) {
+    public InquiryDetailResponse addFollowUp(Long userId, Long inquiryId, InquiryMessageRequest request, List<MultipartFile> files) {
         Inquiry inquiry = getInquiryOrThrow(inquiryId);
         requireOwner(inquiry, userId);
 
         InquiryAnswer latest = inquiryAnswerRepository.findTopByInquiryIdOrderByCreatedAtDesc(inquiryId)
                 .orElseThrow(InquiryAnswerNotFoundException::new);
 
-        inquiryAnswerRepository.save(InquiryAnswer.createFollowUp(inquiry, latest, request.getContent()));
+        InquiryAnswer followUp = inquiryAnswerRepository.save(InquiryAnswer.createFollowUp(inquiry, latest, request.getContent()));
+        saveInquiryPhotos(followUp, files);
 
         inquiry.markPending();
 
         List<InquiryAnswer> messages = inquiryAnswerRepository.findAllByInquiryIdOrderByCreatedAtAsc(inquiryId);
-        return InquiryDetailResponse.of(inquiry, messages, resolveCultivationName(inquiry), resolveUserNickname(userId));
+        return InquiryDetailResponse.of(inquiry, messages, resolveCultivationName(inquiry), resolveUserNickname(userId), minioService::presignedGetUrl);
     }
 
     // 관리자 용
@@ -141,24 +142,25 @@ public class InquiryServiceImpl implements InquiryService {
 
         Inquiry inquiry = getInquiryOrThrow(inquiryId);
         List<InquiryAnswer> messages = inquiryAnswerRepository.findAllByInquiryIdOrderByCreatedAtAsc(inquiryId);
-        return InquiryDetailResponse.of(inquiry, messages, resolveCultivationName(inquiry), resolveUserNickname(inquiry.getUserId()));
+        return InquiryDetailResponse.of(inquiry, messages, resolveCultivationName(inquiry), resolveUserNickname(inquiry.getUserId()), minioService::presignedGetUrl);
     }
 
     @Override
     @Transactional
-    public InquiryDetailResponse answerMessage(Long adminUserId, Long answerId, InquiryMessageRequest request) {
+    public InquiryDetailResponse answerMessage(Long adminUserId, Long answerId, InquiryMessageRequest request, List<MultipartFile> files) {
         requireAdmin(adminUserId);
 
         InquiryAnswer message = inquiryAnswerRepository.findById(answerId)
                 .orElseThrow(InquiryAnswerNotFoundException::new);
 
         message.answer(request.getContent());
+        saveInquiryPhotos(message, files);
 
         Inquiry inquiry = message.getInquiry();
         inquiry.markResolved();
 
         List<InquiryAnswer> messages = inquiryAnswerRepository.findAllByInquiryIdOrderByCreatedAtAsc(inquiry.getId());
-        return InquiryDetailResponse.of(inquiry, messages, resolveCultivationName(inquiry), resolveUserNickname(inquiry.getUserId()));
+        return InquiryDetailResponse.of(inquiry, messages, resolveCultivationName(inquiry), resolveUserNickname(inquiry.getUserId()), minioService::presignedGetUrl);
     }
 
     // Helper Method

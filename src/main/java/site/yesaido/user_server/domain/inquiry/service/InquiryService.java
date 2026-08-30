@@ -18,12 +18,12 @@ public interface InquiryService {
     InquiryDetailResponse createInquiry(Long userId, InquiryCreateRequest request, List<MultipartFile> files);
     Page<InquirySummaryResponse> getMyInquiries(Long userId, Pageable pageable);
     InquiryDetailResponse getMyInquiryDetail(Long userId, Long inquiryId);
-    InquiryDetailResponse addFollowUp(Long userId, Long inquiryId, InquiryMessageRequest request);
+    InquiryDetailResponse addFollowUp(Long userId, Long inquiryId, InquiryMessageRequest request, List<MultipartFile> files);
 
     // 관리자용 API
     Page<InquirySummaryResponse> getAllInquiries(Long adminUserId, InquiryStatus statusFilter, Pageable pageable);
     InquiryDetailResponse getInquiryDetailForAdmin(Long adminUserId, Long inquiryId);
-    InquiryDetailResponse answerMessage(Long adminUserId, Long answerId, InquiryMessageRequest request);
+    InquiryDetailResponse answerMessage(Long adminUserId, Long answerId, InquiryMessageRequest request, List<MultipartFile> files);
 
     InquiryCategoryResponse createCategory(Long adminId, InquiryCategoryCreateRequest request);
 
