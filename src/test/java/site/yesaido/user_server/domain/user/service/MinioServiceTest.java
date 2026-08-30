@@ -44,7 +44,7 @@ class MinioServiceTest {
         String objectKey = minioService.uploadProfileImage(1L, file);
 
         assertThat(objectKey).startsWith("profiles/1/").endsWith(".jpg");
-        verify(minioObjectStorage).put(eq(objectKey), eq(file));
+        verify(minioObjectStorage).put(objectKey, file);
     }
 
     @Test
@@ -163,7 +163,7 @@ class MinioServiceTest {
         String objectKey = minioService.uploadInquiryPhoto(100L, file);
 
         assertThat(objectKey).startsWith("inquiries/100/").endsWith(".png");
-        verify(minioObjectStorage).put(eq(objectKey), eq(file));
+        verify(minioObjectStorage).put(objectKey, file);
     }
 
     @Test

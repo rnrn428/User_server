@@ -366,11 +366,13 @@ class InquiryServiceImplTest {
                 }
 
                 MockMultipartFile file = new MockMultipartFile("files", "extra.jpg", "image/jpeg", "data".getBytes());
+                InquiryMessageRequest request = new InquiryMessageRequest("답변입니다.");
+                List<MultipartFile> files = List.of(file);
 
                 given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
                 given(inquiryAnswerRepository.findById(50L)).willReturn(Optional.of(answer));
 
-                assertThatThrownBy(() -> inquiryService.answerMessage(adminId, 50L, new InquiryMessageRequest("답변입니다."), List.of(file)))
+                assertThatThrownBy(() -> inquiryService.answerMessage(adminId, 50L, request, files))
                         .isInstanceOf(InquiryPhotoLimitExceededException.class);
 
                 verify(minioService, never()).uploadInquiryPhoto(any(), any());

@@ -6,7 +6,7 @@ import site.yesaido.user_server.domain.inquiry.entity.InquiryPhoto;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 public record InquiryMessageResponse(
         Long id,
@@ -16,7 +16,7 @@ public record InquiryMessageResponse(
         LocalDateTime createdAt,
         List<String> photoUrls
 ) {
-    public static InquiryMessageResponse from(InquiryAnswer answer, Function<String, String> photoUrlResolver) {
+    public static InquiryMessageResponse from(InquiryAnswer answer, UnaryOperator<String> photoUrlResolver) {
         return new InquiryMessageResponse(
                 answer.getId(),
                 answer.getPre() != null ? answer.getPre().getId() : null,
