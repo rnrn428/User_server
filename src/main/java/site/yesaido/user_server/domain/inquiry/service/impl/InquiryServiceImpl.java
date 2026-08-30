@@ -201,7 +201,8 @@ public class InquiryServiceImpl implements InquiryService {
             return;
         }
 
-        if(files.size() > MAX_PHOTO_COUNT){
+        int existingCount = inquiryAnswer.getInquiryPhotos().size();
+        if(existingCount + files.size() > MAX_PHOTO_COUNT){
             throw new InquiryPhotoLimitExceededException("문의 사진은 최대 " + MAX_PHOTO_COUNT + "장까지만 등록할 수 있습니다.");
         }
 

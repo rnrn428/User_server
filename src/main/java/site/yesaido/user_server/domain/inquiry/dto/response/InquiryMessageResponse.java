@@ -5,6 +5,7 @@ import site.yesaido.user_server.domain.inquiry.entity.InquiryPhoto;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 public record InquiryMessageResponse(
@@ -25,6 +26,7 @@ public record InquiryMessageResponse(
                 answer.getInquiryPhotos().stream()
                         .map(InquiryPhoto::getObjectKey)
                         .map(photoUrlResolver)
+                        .filter(Objects::nonNull)
                         .toList()
         );
     }

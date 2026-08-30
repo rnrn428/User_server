@@ -20,10 +20,7 @@ import site.yesaido.user_server.domain.inquiry.dto.response.CultivationSummaryRe
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryCategoryResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryDetailResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquirySummaryResponse;
-import site.yesaido.user_server.domain.inquiry.entity.Inquiry;
-import site.yesaido.user_server.domain.inquiry.entity.InquiryAnswer;
-import site.yesaido.user_server.domain.inquiry.entity.InquiryCategory;
-import site.yesaido.user_server.domain.inquiry.entity.InquiryStatus;
+import site.yesaido.user_server.domain.inquiry.entity.*;
 import site.yesaido.user_server.domain.inquiry.exception.FileUploadException;
 import site.yesaido.user_server.domain.inquiry.exception.InquiryAccessDeniedException;
 import site.yesaido.user_server.domain.inquiry.exception.InquiryCategoryNotFoundException;
@@ -354,6 +351,30 @@ class InquiryServiceImplTest {
                 assertThat(response).isNotNull();
                 assertThat(inquiry.getStatus()).isEqualTo(InquiryStatus.RESOLVED);
                 assertThat(answer.getAnswerContent()).isEqualTo("답변입니다.");
+            }
+
+            @Test
+            @DisplayName("관리자 답변 작성 실패 - 기존 사진과 합쳐 5장을 초과하면 InquiryPhotoLimitExceededException")
+            void answerMessage_exceedsPhotoLimitWithExistingPhotos_throwsException() {
+                Long adminId = 99L;
+                User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+                InquiryCategory category = InquiryCategory.create("일반");
+                Inquiry inquiry = Inquiry.builder().id(10L).userId(1L).category(category).title("문의").build();
+                InquiryAnswer answer = InquiryAnswer.createRoot(inquiry, "질문 내용");
+                for (int i = 0; i < 5; i++) {
+                    InquiryPhoto.create(answer, "inquiries/50/existing" + i + ".jpg");
+                }
+
+                MockMultipartFile file = new MockMultipartFile("files", "extra.jpg", "image/jpeg", "data".getBytes());
+
+                given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+                given(inquiryAnswerRepository.findById(50L)).willReturn(Optional.of(answer));
+
+                assertThatThrownBy(() -> inquiryService.answerMessage(adminId, 50L, new InquiryMessageRequest("답변입니다."), List.of(file)))
+                        .isInstanceOf(InquiryPhotoLimitExceededException.class);
+
+                verify(minioService, never()).uploadInquiryPhoto(any(), any());
+                verify(inquiryPhotoRepository, never()).save(any());
             }
 
             @Test
