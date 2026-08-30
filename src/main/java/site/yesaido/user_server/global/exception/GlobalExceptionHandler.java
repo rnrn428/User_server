@@ -39,6 +39,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             NicknameDuplicationException.class,
             EmailDuplicationException.class,
+            EmailVerificationRequiredException.class,
+            RejoinRestrictedException.class,
             InvalidPasswordException.class,
             AlreadyWithdrawnException.class,
             DormantUserException.class,
