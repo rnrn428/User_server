@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import site.yesaido.common.storage.StorageType;
 
 @Entity
 @Table(name = "profile_image")
@@ -21,14 +22,15 @@ public class ProfileImage {
     @Column(name = "object_key", length = 500, nullable = false)
     private String objectKey;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "storage_type", length = 50, nullable = false)
-    private String storageType;
+    private StorageType storageType;
 
     public static ProfileImage create(User user, String objectKey){
         ProfileImage profileImage = new ProfileImage();
         profileImage.user = user;
         profileImage.objectKey = objectKey;
-        profileImage.storageType = "MINIO";
+        profileImage.storageType = StorageType.MINIO;
         return profileImage;
     }
 

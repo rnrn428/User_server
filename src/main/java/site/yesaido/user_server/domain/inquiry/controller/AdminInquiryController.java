@@ -4,8 +4,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import site.yesaido.user_server.domain.inquiry.dto.request.InquiryCategoryCreateRequest;
 import site.yesaido.user_server.domain.inquiry.dto.request.InquiryMessageRequest;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryCategoryResponse;
@@ -15,6 +17,8 @@ import site.yesaido.user_server.domain.inquiry.entity.InquiryStatus;
 import site.yesaido.user_server.domain.inquiry.service.InquiryService;
 import site.yesaido.user_server.global.common.ApiResponse;
 import site.yesaido.user_server.global.common.PageRequestValidator;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/inquiries")
@@ -42,11 +46,12 @@ public class AdminInquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
-    @PutMapping("/messages/{answer-id}")
+    @PutMapping(value = "/messages/{answer-id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<InquiryDetailResponse>> answerMessage(@RequestHeader("X-User-Id") Long adminUserId,
                                                                             @PathVariable("answer-id") Long answerId,
-                                                                            @Valid @RequestBody InquiryMessageRequest inquiryMessageRequest) {
-        InquiryDetailResponse response = inquiryService.answerMessage(adminUserId, answerId, inquiryMessageRequest);
+                                                                            @Valid @RequestPart("request") InquiryMessageRequest inquiryMessageRequest,
+                                                                            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+        InquiryDetailResponse response = inquiryService.answerMessage(adminUserId, answerId, inquiryMessageRequest, files);
         ApiResponse<InquiryDetailResponse> apiResponse = ApiResponse.ok("답변이 등록되었습니다.", response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
