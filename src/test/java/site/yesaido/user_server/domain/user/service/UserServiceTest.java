@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import site.yesaido.user_server.domain.user.dto.MemberSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
+import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
@@ -189,6 +190,7 @@ class UserServiceTest {
 
             assertThat(response).isNotNull();
             assertThat(response.nickname()).isEqualTo("oldNick");
+            assertThat(response.hasPassword()).isFalse();
         }
 
         @Test
@@ -199,7 +201,7 @@ class UserServiceTest {
                     .nickName("oldNick")
                     .build();
 
-            ProfileUpdateRequest request = new ProfileUpdateRequest("newNick", null, null);
+            ProfileUpdateRequest request = new ProfileUpdateRequest("newNick");
 
             given(userRepository.findById(1L)).willReturn(Optional.of(updateUser));
             given(userRepository.existsByNickName("newNick")).willReturn(false);
@@ -218,7 +220,7 @@ class UserServiceTest {
                     .nickName("oldNick")
                     .build();
 
-            ProfileUpdateRequest request = new ProfileUpdateRequest("newNick", null, null);
+            ProfileUpdateRequest request = new ProfileUpdateRequest("newNick");
 
 
             given(userRepository.findById(1L)).willReturn(Optional.of(updateUser));
@@ -260,43 +262,64 @@ class UserServiceTest {
         }
 
         @Test
-        @DisplayName("비밀번호 변경 성공")
-        void updatePassword_success() {
+        @DisplayName("비밀번호 변경 성공 시 비밀번호를 암호화하고 모든 Refresh Token을 폐기한다")
+        void changePassword_success() {
             User user = User.builder().id(1L).nickName("nick").password("encodedOld").build();
-            ProfileUpdateRequest request = new ProfileUpdateRequest("nick", "rawOld", "rawNew");
+            PasswordChangeRequest request = new PasswordChangeRequest("rawOld", "rawNew1!");
 
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(passwordEncoder.matches("rawOld", "encodedOld")).willReturn(true);
-            given(passwordEncoder.encode("rawNew")).willReturn("encodedNew");
+            given(passwordEncoder.matches("rawNew1!", "encodedOld")).willReturn(false);
+            given(passwordEncoder.encode("rawNew1!")).willReturn("encodedNew");
 
-            userService.updateProfile(1L, request);
+            userService.changePassword(1L, request);
 
             assertThat(user.getPassword()).isEqualTo("encodedNew");
+            verify(refreshTokenService).revokeAllRefreshTokens(1L);
         }
 
         @Test
-        @DisplayName("비밀번호 변경 실패 - 현재 비밀번호 미입력 시 InvalidPasswordException")
-        void updatePassword_noCurrentPassword_throwsException() {
+        @DisplayName("비밀번호 변경 실패 - 현재 비밀번호 불일치 시 비밀번호를 변경하거나 Refresh Token을 폐기하지 않는다")
+        void changePassword_wrongCurrentPassword_throwsException() {
             User user = User.builder().id(1L).nickName("nick").password("encodedOld").build();
-            ProfileUpdateRequest request = new ProfileUpdateRequest("nick", "", "rawNew");
-
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-
-            assertThrows(site.yesaido.user_server.domain.user.exception.InvalidPasswordException.class,
-                    () -> userService.updateProfile(1L, request));
-        }
-
-        @Test
-        @DisplayName("비밀번호 변경 실패 - 현재 비밀번호 불일치 시 InvalidPasswordException")
-        void updatePassword_wrongCurrentPassword_throwsException() {
-            User user = User.builder().id(1L).nickName("nick").password("encodedOld").build();
-            ProfileUpdateRequest request = new ProfileUpdateRequest("nick", "wrongOld", "rawNew");
+            PasswordChangeRequest request = new PasswordChangeRequest("wrongOld", "rawNew1!");
 
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(passwordEncoder.matches("wrongOld", "encodedOld")).willReturn(false);
 
-            assertThrows(site.yesaido.user_server.domain.user.exception.InvalidPasswordException.class,
-                    () -> userService.updateProfile(1L, request));
+            assertThrows(InvalidPasswordException.class,
+                    () -> userService.changePassword(1L, request));
+            assertThat(user.getPassword()).isEqualTo("encodedOld");
+            verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
+        }
+
+        @Test
+        @DisplayName("비밀번호 변경 실패 - 새 비밀번호가 기존 비밀번호와 같으면 변경하지 않는다")
+        void changePassword_sameAsOld_throwsException() {
+            User user = User.builder().id(1L).nickName("nick").password("encodedOld").build();
+            PasswordChangeRequest request = new PasswordChangeRequest("rawOld", "rawOld");
+
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(passwordEncoder.matches("rawOld", "encodedOld")).willReturn(true);
+
+            assertThrows(InvalidPasswordException.class,
+                    () -> userService.changePassword(1L, request));
+            verify(passwordEncoder, never()).encode(any());
+            verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
+        }
+
+        @Test
+        @DisplayName("소셜 로그인 계정은 비밀번호를 변경할 수 없다")
+        void changePassword_socialLoginUser_throwsException() {
+            User user = User.builder().id(1L).nickName("social").password(null).build();
+            PasswordChangeRequest request = new PasswordChangeRequest("rawOld", "rawNew1!");
+
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+            assertThrows(InvalidPasswordException.class,
+                    () -> userService.changePassword(1L, request));
+            verify(passwordEncoder, never()).matches(any(), any());
+            verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
         }
 
         @Test
@@ -589,7 +612,6 @@ class UserServiceTest {
         }
     }
 }
-
 
 
 

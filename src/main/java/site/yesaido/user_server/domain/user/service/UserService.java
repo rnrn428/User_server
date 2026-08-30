@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import site.yesaido.user_server.domain.user.dto.MemberSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
+import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
@@ -95,23 +96,32 @@ public class UserService {
     public UserProfileResponse updateProfile(Long userId, ProfileUpdateRequest request){
         User user = getUserById(userId);
 
-        if(StringUtils.hasText(request.nickname()) && !user.getNickName().equals(request.nickname())){
+        if(!user.getNickName().equals(request.nickname())){
             if(userRepository.existsByNickName(request.nickname())){
                 throw new NicknameDuplicationException("이미 사용 중인 닉네임입니다.");
             }
             user.updateNickname(request.nickname());
         }
-
-        if(StringUtils.hasText(request.newPassword())){
-            if (!StringUtils.hasText(request.currentPassword())) {
-                throw new InvalidPasswordException("현재 비밀번호를 입력해 주세요.");
-            }
-            if(!passwordEncoder.matches(request.currentPassword(), user.getPassword())){
-                throw new InvalidPasswordException("현재 비밀번호가 일치하지 않습니다.");
-            }
-            user.updatePassword(passwordEncoder.encode(request.newPassword()));
-        }
         return UserProfileResponse.from(user, resolveProfilePhotoUrl(userId));
+    }
+
+    @Transactional
+    public void changePassword(Long userId, PasswordChangeRequest request){
+        User user = getUserById(userId);
+
+        if(user.getPassword() == null){
+            throw new InvalidPasswordException("소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.");
+        }
+
+        if(!passwordEncoder.matches(request.currentPassword(), user.getPassword())){
+            throw new InvalidPasswordException("현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())){
+            throw new InvalidPasswordException("새 비밀번호는 기존 비밀번호와 달라야 합니다.");
+        }
+        user.updatePassword(passwordEncoder.encode(request.newPassword()));
+        refreshTokenService.revokeAllRefreshTokens(userId);
     }
 
     @Transactional

@@ -14,7 +14,8 @@ public record UserProfileResponse(
         UserStatus status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        String photoUrl
+        String photoUrl,
+        boolean hasPassword
 ) {
     public static UserProfileResponse from(User user, String photoUrl){
         return new UserProfileResponse(
@@ -25,7 +26,8 @@ public record UserProfileResponse(
                 user.getStatus(),
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
-                photoUrl
+                photoUrl,
+                user.getPassword() != null
         );
     }
 }
