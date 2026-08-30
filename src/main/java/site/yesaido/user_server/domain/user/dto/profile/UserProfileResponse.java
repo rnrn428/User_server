@@ -13,9 +13,11 @@ public record UserProfileResponse(
         Role role,
         UserStatus status,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String photoUrl,
+        boolean hasPassword
 ) {
-    public static UserProfileResponse from(User user){
+    public static UserProfileResponse from(User user, String photoUrl){
         return new UserProfileResponse(
                 user.getId(),
                 user.getEmail(),
@@ -23,7 +25,9 @@ public record UserProfileResponse(
                 user.getRole(),
                 user.getStatus(),
                 user.getCreatedAt(),
-                user.getUpdatedAt()
+                user.getUpdatedAt(),
+                photoUrl,
+                user.getPassword() != null
         );
     }
 }

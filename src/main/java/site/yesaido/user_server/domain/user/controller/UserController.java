@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
+import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
 import site.yesaido.user_server.domain.user.dto.profile.PasswordVerifyRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
@@ -62,6 +63,13 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(@RequestHeader("X-User-Id") Long userId, @Valid @RequestBody ProfileUpdateRequest request){
         UserProfileResponse response = userService.updateProfile(userId, request);
         ApiResponse<UserProfileResponse> apiResponse = ApiResponse.ok("프로필 수정 성공", response);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
+
+    @PutMapping("/mypage/password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(@RequestHeader("X-User-Id") Long userId, @Valid @RequestBody PasswordChangeRequest request){
+        userService.changePassword(userId, request);
+        ApiResponse<Void> apiResponse = ApiResponse.ok("비밀번호가 변경되었습니다. 다시 로그인해주세요.");
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
