@@ -6,6 +6,7 @@ import site.yesaido.user_server.domain.inquiry.entity.InquiryStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.function.Function;
 
 public record InquiryDetailResponse(
         Long id,
@@ -20,7 +21,8 @@ public record InquiryDetailResponse(
         String cultivationName,
         List<InquiryMessageResponse> messages
 ) {
-    public static InquiryDetailResponse of(Inquiry inquiry, List<InquiryAnswer> answer, String cultivationName, String userNickname) {
+    public static InquiryDetailResponse of(Inquiry inquiry, List<InquiryAnswer> answer, String cultivationName,
+                                           String userNickname, Function<String, String> photoUrlResolver) {
         return new InquiryDetailResponse(
                 inquiry.getId(),
                 inquiry.getUserId(),
@@ -32,7 +34,7 @@ public record InquiryDetailResponse(
                 inquiry.getCreatedAt(),
                 inquiry.getCultivationId(),
                 cultivationName,
-                answer.stream().map(InquiryMessageResponse::from).toList()
+                answer.stream().map(a -> InquiryMessageResponse.from(a, photoUrlResolver)).toList()
         );
     }
 }

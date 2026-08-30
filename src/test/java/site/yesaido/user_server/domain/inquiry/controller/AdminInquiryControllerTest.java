@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 import site.yesaido.user_server.domain.inquiry.dto.request.InquiryCategoryCreateRequest;
 import site.yesaido.user_server.domain.inquiry.dto.request.InquiryMessageRequest;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryCategoryResponse;
@@ -69,11 +70,12 @@ class AdminInquiryControllerTest {
     @DisplayName("PUT /api/admin/inquiries/messages/{answer-id} - 관리자 답변 작성 성공")
     void answerMessage_success() {
         InquiryMessageRequest request = new InquiryMessageRequest("답변 내용");
+        List<MultipartFile> files = List.of(mock(MultipartFile.class));
         InquiryDetailResponse detailResponse = mock(InquiryDetailResponse.class);
-        given(inquiryService.answerMessage(99L, 50L, request)).willReturn(detailResponse);
+        given(inquiryService.answerMessage(99L, 50L, request, files)).willReturn(detailResponse);
 
         ResponseEntity<ApiResponse<InquiryDetailResponse>> response =
-                adminInquiryController.answerMessage(99L, 50L, request);
+                adminInquiryController.answerMessage(99L, 50L, request, files);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();

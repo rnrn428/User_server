@@ -60,11 +60,12 @@ public class InquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
-    @PostMapping("/{inquiry-id}/messages")
+    @PostMapping(value = "/{inquiry-id}/messages", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<InquiryDetailResponse>> addFollowUp(@RequestHeader("X-User-Id") Long userId,
                                                                           @PathVariable("inquiry-id") Long inquiryId,
-                                                                          @Valid @RequestBody InquiryMessageRequest request) {
-        InquiryDetailResponse response = inquiryService.addFollowUp(userId, inquiryId, request);
+                                                                          @Valid @RequestPart("request") InquiryMessageRequest request,
+                                                                          @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+        InquiryDetailResponse response = inquiryService.addFollowUp(userId, inquiryId, request, files);
         ApiResponse<InquiryDetailResponse> apiResponse = ApiResponse.ok("추가 질문이 등록되었습니다.", response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
