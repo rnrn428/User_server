@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
+import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
 import site.yesaido.user_server.domain.user.dto.profile.PasswordVerifyRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
@@ -157,7 +158,7 @@ class UserControllerTest {
     @Test
     @DisplayName("마이페이지 프로필 수정 성공")
     void updateProfile_success() {
-        ProfileUpdateRequest request = new ProfileUpdateRequest("새닉네임", "current1!", "newpass1!");
+        ProfileUpdateRequest request = new ProfileUpdateRequest("새닉네임");
         UserProfileResponse expected = mock(UserProfileResponse.class);
         given(userService.updateProfile(1L, request)).willReturn(expected);
 
@@ -166,6 +167,19 @@ class UserControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data()).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경 요청을 서비스에 위임하고 성공 응답을 반환한다")
+    void changePassword_success() {
+        PasswordChangeRequest request = new PasswordChangeRequest("currentPass1!", "newPass1!");
+
+        ResponseEntity<ApiResponse<Void>> response = userController.changePassword(1L, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).isEqualTo("비밀번호가 변경되었습니다. 다시 로그인해주세요.");
+        verify(userService).changePassword(1L, request);
     }
 
     @Test
