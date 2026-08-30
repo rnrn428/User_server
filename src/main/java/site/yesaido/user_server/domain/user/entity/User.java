@@ -9,6 +9,7 @@ import site.yesaido.user_server.domain.user.entity.en.UserStatus;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
@@ -104,6 +105,14 @@ public class User {
     public void withdraw(){
         this.status = UserStatus.DELETED;
         this.deletedAt = LocalDateTime.now(KOREA_ZONE);
+    }
+
+    public void anonymize() {
+        String suffix = id + "-" + UUID.randomUUID().toString().substring(0, 12);
+        this.email = "deleted-" + suffix + "@deleted.invalid";
+        this.nickName = "deleted-" + suffix;
+        this.password = null;
+        this.emailVerified = false;
     }
 
 

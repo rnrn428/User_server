@@ -11,6 +11,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import site.yesaido.user_server.domain.email.service.EmailService;
 import site.yesaido.user_server.domain.user.dto.MemberSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
@@ -19,6 +20,7 @@ import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
+import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
 import site.yesaido.user_server.domain.user.entity.ProfileImage;
 import site.yesaido.user_server.domain.user.entity.User;
 import site.yesaido.user_server.domain.user.entity.en.Role;
@@ -30,39 +32,55 @@ import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
 
 import java.util.Collections;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService {
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+    private static final long REJOIN_RESTRICTION_DAYS = 30;
+
     private final UserRepository userRepository;
     private final MinioService minioService;
     private final ProfileImageRepository profileImageRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
+    private final EmailService emailService;
 
     @Transactional
     public UserSignResponse signUp(UserSignUpRequest signUpRequestDto){
-        if(userRepository.existsByEmail(signUpRequestDto.getEmail())){
-            throw new EmailDuplicationException("이메일이 중복됩니다.");
+        String email = signUpRequestDto.getEmail().trim();
+        validateSignupEmailVerification(email);
+
+        User existingUser = userRepository.findByEmail(email).orElse(null);
+
+        if (existingUser != null){
+            if(existingUser.getStatus() != UserStatus.DELETED){
+                throw new EmailDuplicationException("이메일이 중복됩니다.");
+            }
+            validateRejoinAllowed(existingUser);
+            existingUser.anonymize();
         }
+
 
         if(userRepository.existsByNickName(signUpRequestDto.getNickName())){
             throw new NicknameDuplicationException("닉네임이 중복됩니다.");
         }
 
-        String encodedPassword = passwordEncoder.encode(signUpRequestDto.getPassword());
 
         User user = User.builder()
-                .email(signUpRequestDto.getEmail())
-                .password(encodedPassword)
+                .email(email)
+                .password(passwordEncoder.encode(signUpRequestDto.getPassword()))
                 .nickName(signUpRequestDto.getNickName())
                 .status(UserStatus.ACTIVE)
                 .emailVerified(true)
                 .build();
 
         User savedUser = userRepository.save(user);
+        emailService.clearSignupEmailVerification(email);
 
         return UserSignResponse.from(savedUser);
 
@@ -157,8 +175,15 @@ public class UserService {
         refreshTokenService.revokeAllRefreshTokens(userId);
     }
 
-    public boolean existsEmail(String email){
-        return userRepository.existsByEmail(email);
+    public SignupEmailVerificationResponse verifySignupEmail(String email, String code) {
+        String normalizedEmail = email.trim();
+        if (!emailService.verifySignupCode(normalizedEmail, code.trim())) {
+            return SignupEmailVerificationResponse.notVerified();
+        }
+
+        return userRepository.findByEmail(normalizedEmail)
+                .map(this::getSignupEligibility)
+                .orElseGet(SignupEmailVerificationResponse::available);
     }
 
     public boolean existNickname(String nickName){
@@ -235,6 +260,38 @@ public class UserService {
         if (user.getRole() != Role.ADMIN) {
             throw new UserAccessDeniedException();
         }
+    }
+
+    private SignupEmailVerificationResponse getSignupEligibility(User user) {
+        if (user.getStatus() != UserStatus.DELETED) {
+            return SignupEmailVerificationResponse.alreadyRegistered();
+        }
+
+        LocalDateTime rejoinAvailableAt = getRejoinAvailableAt(user);
+        if (LocalDateTime.now(KOREA_ZONE).isBefore(rejoinAvailableAt)) {
+            return SignupEmailVerificationResponse.rejoinRestricted(rejoinAvailableAt);
+        }
+        return SignupEmailVerificationResponse.available();
+    }
+
+    private void validateSignupEmailVerification(String email) {
+        if (!emailService.isSignupEmailVerified(email)) {
+            throw new EmailVerificationRequiredException();
+        }
+    }
+
+    private void validateRejoinAllowed(User user) {
+        LocalDateTime rejoinAvailableAt = getRejoinAvailableAt(user);
+        if (LocalDateTime.now(KOREA_ZONE).isBefore(rejoinAvailableAt)) {
+            throw new RejoinRestrictedException(rejoinAvailableAt);
+        }
+    }
+
+    private LocalDateTime getRejoinAvailableAt(User user) {
+        if (user.getDeletedAt() == null) {
+            throw new IllegalStateException("탈퇴 일시가 없는 탈퇴 회원입니다.");
+        }
+        return user.getDeletedAt().plusDays(REJOIN_RESTRICTION_DAYS);
     }
 
     private String resolveProfilePhotoUrl(Long userId) {

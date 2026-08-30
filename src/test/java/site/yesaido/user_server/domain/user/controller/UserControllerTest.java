@@ -16,6 +16,8 @@ import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
+import site.yesaido.user_server.domain.user.dto.signup.SignupEligibility;
+import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
 import site.yesaido.user_server.domain.user.dto.withdraw.WithdrawRequest;
 import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
@@ -38,29 +40,6 @@ class UserControllerTest {
 
     @InjectMocks
     private UserController userController;
-
-    @Test
-    @DisplayName("이메일 중복 확인 - 중복이면 true 반환")
-    void checkEmail_duplicated() {
-        given(userService.existsEmail("test@test.com")).willReturn(true);
-
-        ResponseEntity<ApiResponse<Boolean>> response = userController.checkEmail("test@test.com");
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data()).isTrue();
-    }
-
-    @Test
-    @DisplayName("이메일 중복 확인 - 중복 아니면 false 반환")
-    void checkEmail_notDuplicated() {
-        given(userService.existsEmail("new@test.com")).willReturn(false);
-
-        ResponseEntity<ApiResponse<Boolean>> response = userController.checkEmail("new@test.com");
-
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().data()).isFalse();
-    }
 
     @Test
     @DisplayName("닉네임 중복 확인 - 중복이면 true 반환")
@@ -112,6 +91,22 @@ class UserControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().getEmail()).isEqualTo("test@test.com");
         assertThat(response.getBody().data().getNickName()).isEqualTo("닉네임");
+    }
+
+    @Test
+    @DisplayName("회원가입 이메일 인증 결과를 반환한다")
+    void verifySignupEmail_success() {
+        SignupEmailVerificationResponse expected = new SignupEmailVerificationResponse(
+                true, SignupEligibility.AVAILABLE, null
+        );
+        given(userService.verifySignupEmail("test@test.com", "123456")).willReturn(expected);
+
+        ResponseEntity<ApiResponse<SignupEmailVerificationResponse>> response =
+                userController.verifySignupEmail("test@test.com", "123456");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data()).isEqualTo(expected);
     }
 
     @Test
