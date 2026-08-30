@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import site.yesaido.user_server.domain.email.service.EmailService;
 import site.yesaido.user_server.domain.user.dto.MemberSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
@@ -20,6 +21,7 @@ import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
+import site.yesaido.user_server.domain.user.dto.signup.SignupEligibility;
 import site.yesaido.user_server.domain.user.entity.User;
 import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
@@ -29,6 +31,8 @@ import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,6 +59,9 @@ class UserServiceTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private EmailService emailService;
+
     @InjectMocks
     private UserService userService;
 
@@ -79,7 +86,8 @@ class UserServiceTest {
                                                             .role(Role.USER)
                                                                     .build();
 
-            given(userRepository.existsByEmail(requestDto.getEmail())).willReturn(false);
+            given(emailService.isSignupEmailVerified(requestDto.getEmail())).willReturn(true);
+            given(userRepository.findByEmail(requestDto.getEmail())).willReturn(Optional.empty());
             given(userRepository.existsByNickName(requestDto.getNickName())).willReturn(false);
             given(passwordEncoder.encode(requestDto.getPassword())).willReturn("$2a$10$encodedPassword");
             given(userRepository.save(any(User.class))).willReturn(savedUser);
@@ -102,7 +110,9 @@ class UserServiceTest {
                     .role(Role.USER)
                     .build();
 
-            given(userRepository.existsByEmail(requestDto.getEmail())).willReturn(true);
+            User existingUser = User.builder().email(requestDto.getEmail()).status(UserStatus.ACTIVE).build();
+            given(emailService.isSignupEmailVerified(requestDto.getEmail())).willReturn(true);
+            given(userRepository.findByEmail(requestDto.getEmail())).willReturn(Optional.of(existingUser));
 
             assertThrows(EmailDuplicationException.class, () -> userService.signUp(requestDto));
 
@@ -120,11 +130,99 @@ class UserServiceTest {
                     .role(Role.USER)
                     .build();
 
+            given(emailService.isSignupEmailVerified(requestDto.getEmail())).willReturn(true);
+            given(userRepository.findByEmail(requestDto.getEmail())).willReturn(Optional.empty());
             given(userRepository.existsByNickName(requestDto.getNickName())).willReturn(true);
 
             assertThrows(NicknameDuplicationException.class, () -> userService.signUp(requestDto));
 
             verify(userRepository, never()).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("실패 : 이메일 인증 없이 가입하면 예외가 발생한다")
+        void signUp_withoutEmailVerification() {
+            UserSignUpRequest requestDto = UserSignUpRequest.builder()
+                    .email("new@test.com")
+                    .password("password123!")
+                    .nickName("newNick")
+                    .build();
+
+            given(emailService.isSignupEmailVerified(requestDto.getEmail())).willReturn(false);
+
+            assertThatThrownBy(() -> userService.signUp(requestDto))
+                    .isInstanceOf(EmailVerificationRequiredException.class);
+
+            verify(userRepository, never()).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("성공 : 인증을 마친 신규 이메일은 가입 가능 상태를 반환한다")
+        void verifySignupEmail_newEmailAvailable() {
+            String email = "new@test.com";
+            given(emailService.verifySignupCode(email, "123456")).willReturn(true);
+            given(userRepository.findByEmail(email)).willReturn(Optional.empty());
+
+            var response = userService.verifySignupEmail(email, "123456");
+
+            assertThat(response.verified()).isTrue();
+            assertThat(response.eligibility()).isEqualTo(SignupEligibility.AVAILABLE);
+        }
+
+        @Test
+        @DisplayName("성공 : 탈퇴 후 30일 이내 이메일은 재가입 제한 상태를 반환한다")
+        void verifySignupEmail_recentlyWithdrawnIsRestricted() {
+            String email = "withdrawn@test.com";
+            User withdrawnUser = User.builder()
+                    .email(email)
+                    .status(UserStatus.DELETED)
+                    .deletedAt(LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(1))
+                    .build();
+            given(emailService.verifySignupCode(email, "123456")).willReturn(true);
+            given(userRepository.findByEmail(email)).willReturn(Optional.of(withdrawnUser));
+
+            var response = userService.verifySignupEmail(email, "123456");
+
+            assertThat(response.verified()).isTrue();
+            assertThat(response.eligibility()).isEqualTo(SignupEligibility.REJOIN_RESTRICTED);
+            assertThat(response.rejoinAvailableAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("성공 : 탈퇴 후 30일이 지난 이메일은 기존 식별자를 익명화하고 새 계정을 만든다")
+        void signUp_afterRejoinRestrictionCreatesNewUser() {
+            UserSignUpRequest requestDto = UserSignUpRequest.builder()
+                    .email("withdrawn@test.com")
+                    .password("password123!")
+                    .nickName("newNick")
+                    .build();
+            User withdrawnUser = User.builder()
+                    .id(1L)
+                    .email(requestDto.getEmail())
+                    .nickName("oldNick")
+                    .password("oldPassword")
+                    .status(UserStatus.DELETED)
+                    .deletedAt(LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusDays(31))
+                    .build();
+            User newUser = User.builder()
+                    .id(2L)
+                    .email(requestDto.getEmail())
+                    .nickName(requestDto.getNickName())
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            given(emailService.isSignupEmailVerified(requestDto.getEmail())).willReturn(true);
+            given(userRepository.findByEmail(requestDto.getEmail())).willReturn(Optional.of(withdrawnUser));
+            given(userRepository.existsByNickName(requestDto.getNickName())).willReturn(false);
+            given(passwordEncoder.encode(requestDto.getPassword())).willReturn("encodedPassword");
+            given(userRepository.save(any(User.class))).willReturn(newUser);
+
+            UserSignResponse response = userService.signUp(requestDto);
+
+            assertThat(response.getId()).isEqualTo(2L);
+            assertThat(withdrawnUser.getEmail()).startsWith("deleted-1-");
+            assertThat(withdrawnUser.getNickName()).startsWith("deleted-1-");
+            assertThat(withdrawnUser.getPassword()).isNull();
+            verify(emailService).clearSignupEmailVerification(requestDto.getEmail());
         }
     }
 
@@ -462,26 +560,6 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("이메일이 존재하면 true 반환")
-    void existsEmail_true(){
-        given(userRepository.existsByEmail("test@test.com")).willReturn(true);
-
-        boolean result = userService.existsEmail("test@test.com");
-
-        assertThat(result).isTrue();
-    }
-
-    @Test
-    @DisplayName("이메일이 존재하지 않으면 false 반환")
-    void existsEmail_false(){
-        given(userRepository.existsByEmail("new@test.com")).willReturn(false);
-
-        boolean result = userService.existsEmail("new@test.com");
-
-        assertThat(result).isFalse();
-    }
-
-    @Test
     @DisplayName("닉네임이 존재하면 true 반환")
     void existNickname_true(){
         given(userRepository.existsByNickName("닉네임")).willReturn(true);
@@ -612,9 +690,6 @@ class UserServiceTest {
         }
     }
 }
-
-
-
 
 
 

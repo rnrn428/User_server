@@ -56,7 +56,7 @@ class EmailServiceTest {
             emailService.sendVerificationEmail(toEmail);
 
             verify(asyncMailSender).sendMailAsync(any(SimpleMailMessage.class));
-            verify(valueOperations).set(eq("EMAIL_VERIFY:" + toEmail), anyString(), eq(5L), eq(TimeUnit.MINUTES));
+            verify(valueOperations).set(eq("EMAIL_VERIFY:" + toEmail), anyString(), eq(30L), eq(TimeUnit.SECONDS));
             verify(valueOperations).set("EMAIL_RESEND_WAIT:" + toEmail, "1", 30L, TimeUnit.SECONDS);
         }
 
@@ -92,6 +92,20 @@ class EmailServiceTest {
             assertThat(result).isTrue();
             verify(stringRedisTemplate).delete("EMAIL_VERIFY:" + email);
             verify(stringRedisTemplate).delete("EMAIL_VERIFY_FAIL:" + email);
+        }
+
+        @Test
+        @DisplayName("성공 : 회원가입 인증에 성공하면 가입 인증 완료 키를 5분간 저장한다")
+        void success_verifySignupCode(){
+            String email = "test@naver.com";
+            given(stringRedisTemplate.opsForValue()).willReturn(valueOperations);
+            given(valueOperations.get("EMAIL_VERIFY_FAIL:" + email)).willReturn(null);
+            given(valueOperations.get("EMAIL_VERIFY:" + email)).willReturn("123456");
+
+            boolean result = emailService.verifySignupCode(email, "123456");
+
+            assertThat(result).isTrue();
+            verify(valueOperations).set("EMAIL_SIGNUP_VERIFIED:" + email, "1", 5L, TimeUnit.MINUTES);
         }
 
         @Test
