@@ -80,7 +80,7 @@ public class UserService {
 
     public UserProfileResponse getMyProfile(Long userId){
         User user = getUserById(userId);
-        return UserProfileResponse.from(user);
+        return UserProfileResponse.from(user, resolveProfilePhotoUrl(userId));
     }
 
     public boolean verifyPassword(Long userId, String rawPassword){
@@ -111,7 +111,7 @@ public class UserService {
             }
             user.updatePassword(passwordEncoder.encode(request.newPassword()));
         }
-        return UserProfileResponse.from(user);
+        return UserProfileResponse.from(user, resolveProfilePhotoUrl(userId));
     }
 
     @Transactional
@@ -125,12 +125,11 @@ public class UserService {
 
             registerMinioCleanUp(oldObjectKey, newObjectKey);
 
-            return newObjectKey;
+            return minioService.presignedGetUrl(newObjectKey);
         }catch (Exception e){
             minioService.deleteQuietly(newObjectKey);
             throw e;
         }
-
     }
 
     @Transactional
@@ -228,4 +227,10 @@ public class UserService {
         }
     }
 
+    private String resolveProfilePhotoUrl(Long userId) {
+        return profileImageRepository.findByUserId(userId)
+                .map(ProfileImage::getObjectKey)
+                .map(minioService::presignedGetUrl)
+                .orElse(null);
+    }
 }

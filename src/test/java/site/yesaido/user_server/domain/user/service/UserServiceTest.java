@@ -310,10 +310,11 @@ class UserServiceTest {
                 given(userRepository.findById(1L)).willReturn(Optional.of(user));
                 given(minioService.uploadProfileImage(1L, file)).willReturn("profiles/1/new.jpg");
                 given(profileImageRepository.findByUserId(1L)).willReturn(Optional.empty());
+                given(minioService.presignedGetUrl("profiles/1/new.jpg")).willReturn("https://cdn.example.com/profiles/1/new.jpg");
 
                 String result = userService.uploadProfileImage(1L, file);
 
-                assertThat(result).isEqualTo("profiles/1/new.jpg");
+                assertThat(result).isEqualTo("https://cdn.example.com/profiles/1/new.jpg");
                 verify(profileImageRepository).save(any());
             } finally {
                 org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
@@ -333,10 +334,11 @@ class UserServiceTest {
                 given(userRepository.findById(1L)).willReturn(Optional.of(user));
                 given(minioService.uploadProfileImage(1L, file)).willReturn("profiles/1/new.jpg");
                 given(profileImageRepository.findByUserId(1L)).willReturn(Optional.of(oldImage));
+                given(minioService.presignedGetUrl("profiles/1/new.jpg")).willReturn("https://cdn.example.com/profiles/1/new.jpg");
 
                 String result = userService.uploadProfileImage(1L, file);
 
-                assertThat(result).isEqualTo("profiles/1/new.jpg");
+                assertThat(result).isEqualTo("https://cdn.example.com/profiles/1/new.jpg");
                 assertThat(oldImage.getObjectKey()).isEqualTo("profiles/1/new.jpg");
             } finally {
                 org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();

@@ -6,7 +6,7 @@ import site.yesaido.user_server.domain.inquiry.entity.InquiryStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 public record InquiryDetailResponse(
         Long id,
@@ -22,7 +22,7 @@ public record InquiryDetailResponse(
         List<InquiryMessageResponse> messages
 ) {
     public static InquiryDetailResponse of(Inquiry inquiry, List<InquiryAnswer> answer, String cultivationName,
-                                           String userNickname, Function<String, String> photoUrlResolver) {
+                                           String userNickname, UnaryOperator<String> photoUrlResolver) {
         return new InquiryDetailResponse(
                 inquiry.getId(),
                 inquiry.getUserId(),
