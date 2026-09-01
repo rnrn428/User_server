@@ -107,6 +107,10 @@ public class User {
         this.deletedAt = LocalDateTime.now(KOREA_ZONE);
     }
 
+    public void releaseDormant(){
+        this.status = UserStatus.ACTIVE;
+    }
+
     public void anonymize() {
         String suffix = id + "-" + UUID.randomUUID().toString().substring(0, 12);
         this.email = "deleted-" + suffix + "@deleted.invalid";

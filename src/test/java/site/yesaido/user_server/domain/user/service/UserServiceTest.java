@@ -668,7 +668,7 @@ class UserServiceTest {
     class getMembersTest {
 
         @Test
-        @DisplayName("성공 : status=active면 탈퇴하지 않은 회원을 조회한다")
+        @DisplayName("성공 : status=active면 활성 회원만 조회한다")
         void getMembers_active_success() {
             Long adminId = 99L;
             User admin = User.builder().id(adminId).role(Role.ADMIN).build();
@@ -677,13 +677,31 @@ class UserServiceTest {
             Page<User> page = new PageImpl<>(List.of(member));
 
             given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
-            given(userRepository.findAllByStatusNot(UserStatus.DELETED, pageable)).willReturn(page);
+            given(userRepository.findAllByStatus(UserStatus.ACTIVE, pageable)).willReturn(page);
 
             Page<MemberSummaryResponse> result = userService.getMembers(adminId, "active", pageable);
 
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().getFirst().nickname()).isEqualTo("닉네임");
-            verify(userRepository, never()).findAllByStatus(any(), any());
+            verify(userRepository, never()).findAllByStatusNot(any(), any());
+        }
+
+        @Test
+        @DisplayName("성공 : status=dormant면 휴면 회원만 조회한다")
+        void getMembers_dormant_success() {
+            Long adminId = 99L;
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            User dormantMember = User.builder().id(3L).nickName("휴면닉네임").status(UserStatus.DORMANT).build();
+            Pageable pageable = PageRequest.of(0, 8);
+            Page<User> page = new PageImpl<>(List.of(dormantMember));
+
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+            given(userRepository.findAllByStatus(UserStatus.DORMANT, pageable)).willReturn(page);
+
+            Page<MemberSummaryResponse> result = userService.getMembers(adminId, "dormant", pageable);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().getFirst().nickname()).isEqualTo("휴면닉네임");
         }
 
         @Test
@@ -732,9 +750,136 @@ class UserServiceTest {
                     .isInstanceOf(UserNotFoundException.class);
         }
     }
+
+    @Nested
+    @DisplayName("관리자 휴면 회원 해제 테스트")
+    class ReleaseDormantMemberTest {
+
+        @Test
+        @DisplayName("성공 : 관리자가 휴면 회원을 활성 상태로 해제한다")
+        void releaseDormantMember_success() {
+            Long adminId = 99L;
+            Long memberId = 1L;
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            User dormantMember = User.builder().id(memberId).status(UserStatus.DORMANT).build();
+
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+            given(userRepository.findById(memberId)).willReturn(Optional.of(dormantMember));
+
+            userService.releaseDormantMember(adminId, memberId);
+
+            assertThat(dormantMember.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("실패 : 휴면 상태가 아닌 회원은 해제할 수 없다")
+        void releaseDormantMember_notDormant_throwsException() {
+            Long adminId = 99L;
+            Long memberId = 1L;
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            User activeMember = User.builder().id(memberId).status(UserStatus.ACTIVE).build();
+
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+            given(userRepository.findById(memberId)).willReturn(Optional.of(activeMember));
+
+            assertThatThrownBy(() -> userService.releaseDormantMember(adminId, memberId))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("휴면 상태의 회원만 해제할 수 있습니다.");
+
+            assertThat(activeMember.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("실패 : 일반 사용자는 휴면 회원을 해제할 수 없다")
+        void releaseDormantMember_notAdmin_throwsException() {
+            Long userId = 1L;
+            User normalUser = User.builder().id(userId).role(Role.USER).build();
+
+            given(userRepository.findById(userId)).willReturn(Optional.of(normalUser));
+
+            assertThatThrownBy(() -> userService.releaseDormantMember(userId, 2L))
+                    .isInstanceOf(UserAccessDeniedException.class);
+
+            verify(userRepository, never()).findById(2L);
+        }
+    }
+
+    @Nested
+    @DisplayName("관리자 강제 탈퇴 테스트")
+    class ForceWithdrawTest {
+
+        @Test
+        @DisplayName("성공 : 관리자가 활성 회원을 강제 탈퇴하고 Refresh Token을 삭제한다")
+        void forceWithdraw_activeMember_success() {
+            Long adminId = 99L;
+            Long memberId = 1L;
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            User activeMember = User.builder().id(memberId).role(Role.USER).status(UserStatus.ACTIVE).build();
+
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+            given(userRepository.findById(memberId)).willReturn(Optional.of(activeMember));
+
+            userService.forceWithdraw(adminId, memberId);
+
+            assertThat(activeMember.getStatus()).isEqualTo(UserStatus.DELETED);
+            assertThat(activeMember.getDeletedAt()).isNotNull();
+            verify(refreshTokenService).revokeAllRefreshTokens(memberId);
+        }
+
+        @Test
+        @DisplayName("성공 : 관리자가 휴면 회원도 강제 탈퇴할 수 있다")
+        void forceWithdraw_dormantMember_success() {
+            Long adminId = 99L;
+            Long memberId = 1L;
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            User dormantMember = User.builder().id(memberId).role(Role.USER).status(UserStatus.DORMANT).build();
+
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+            given(userRepository.findById(memberId)).willReturn(Optional.of(dormantMember));
+
+            userService.forceWithdraw(adminId, memberId);
+
+            assertThat(dormantMember.getStatus()).isEqualTo(UserStatus.DELETED);
+            verify(refreshTokenService).revokeAllRefreshTokens(memberId);
+        }
+
+        @Test
+        @DisplayName("실패 : 관리자 계정은 강제 탈퇴할 수 없다")
+        void forceWithdraw_adminMember_throwsException() {
+            Long adminId = 99L;
+            Long memberId = 100L;
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            User targetAdmin = User.builder().id(memberId).role(Role.ADMIN).status(UserStatus.ACTIVE).build();
+
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+            given(userRepository.findById(memberId)).willReturn(Optional.of(targetAdmin));
+
+            assertThatThrownBy(() -> userService.forceWithdraw(adminId, memberId))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("관리자 계정은 강제 탈퇴할 수 없습니다.");
+
+            verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
+        }
+
+        @Test
+        @DisplayName("실패 : 이미 탈퇴한 회원은 강제 탈퇴할 수 없다")
+        void forceWithdraw_withdrawnMember_throwsException() {
+            Long adminId = 99L;
+            Long memberId = 1L;
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            User withdrawnMember = User.builder().id(memberId).role(Role.USER).status(UserStatus.DELETED).build();
+
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+            given(userRepository.findById(memberId)).willReturn(Optional.of(withdrawnMember));
+
+            assertThatThrownBy(() -> userService.forceWithdraw(adminId, memberId))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("이미 탈퇴한 회원입니다.");
+
+            verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
+        }
+    }
 }
-
-
 
 
 

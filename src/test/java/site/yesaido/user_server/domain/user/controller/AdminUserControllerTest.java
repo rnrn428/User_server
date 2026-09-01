@@ -21,6 +21,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class AdminUserControllerTest {
@@ -44,5 +45,29 @@ class AdminUserControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().getContent()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/admin/members/{memberId}/dormant-release - 휴면 회원 해제 성공")
+    void releaseDormantMember_success() {
+        ResponseEntity<ApiResponse<Void>> response =
+                adminUserController.releaseDormantMember(99L, 1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).isEqualTo("휴면 계정을 해제했습니다.");
+        verify(userService).releaseDormantMember(99L, 1L);
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/admin/members/{memberId} - 강제 탈퇴 성공")
+    void forceWithdraw_success() {
+        ResponseEntity<ApiResponse<Void>> response =
+                adminUserController.forceWithdraw(99L, 1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).isEqualTo("회원을 강제 탈퇴했습니다.");
+        verify(userService).forceWithdraw(99L, 1L);
     }
 }
