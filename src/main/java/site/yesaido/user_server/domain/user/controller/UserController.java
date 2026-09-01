@@ -36,9 +36,9 @@ public class UserController {
     }
 
     // 2. 회원가입 (201 Created)
-    @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<UserSignResponse>> signUp(@Valid @RequestBody UserSignUpRequest signUpRequestDto){
-        UserSignResponse responseDto = userService.signUp(signUpRequestDto);
+    @PostMapping(value = "/signup", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<UserSignResponse>> signUp(@Valid @RequestPart("request") UserSignUpRequest request, @RequestPart(value = "profileImage", required = false) MultipartFile profileImage){
+        UserSignResponse responseDto = userService.signUp(request, profileImage);
         ApiResponse<UserSignResponse> apiResponse = ApiResponse.created("회원가입이 성공적으로 완료되었습니다.", responseDto);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }

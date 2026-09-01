@@ -51,7 +51,7 @@ public class UserService {
     private final EmailService emailService;
 
     @Transactional
-    public UserSignResponse signUp(UserSignUpRequest signUpRequestDto){
+    public UserSignResponse signUp(UserSignUpRequest signUpRequestDto, MultipartFile profileImage){
         String email = signUpRequestDto.getEmail().trim();
         validateSignupEmailVerification(email);
 
@@ -80,11 +80,15 @@ public class UserService {
                 .build();
 
         User savedUser = userRepository.save(user);
+
+        if(profileImage != null && !profileImage.isEmpty()){
+            saveInitialProfileImage(savedUser, profileImage);
+        }
         emailService.clearSignupEmailVerification(email);
 
         return UserSignResponse.from(savedUser);
-
     }
+
 
     public User getUserById(Long userId){
         User user = userRepository.findById(userId)
@@ -299,5 +303,18 @@ public class UserService {
                 .map(ProfileImage::getObjectKey)
                 .map(minioService::presignedGetUrl)
                 .orElse(null);
+    }
+
+    private void saveInitialProfileImage(User user, MultipartFile profileImage){
+        String objectKey = minioService.uploadProfileImage(user.getId(), profileImage);
+        try{
+            ProfileImage image = ProfileImage.create(user, objectKey);
+            profileImageRepository.save(image);
+
+            registerMinioCleanUp(null, objectKey);
+        }catch (Exception e){
+            minioService.deleteQuietly(objectKey);
+            throw e;
+        }
     }
 }
