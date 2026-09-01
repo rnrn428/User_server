@@ -25,4 +25,18 @@ public class AdminUserController {
         ApiResponse<Page<MemberSummaryResponse>> apiResponse = ApiResponse.ok("회원 목록입니다.", responses);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
+
+    @PutMapping("/{memberId}/dormant-release")
+    public ResponseEntity<ApiResponse<Void>> releaseDormantMember(@RequestHeader("X-User-Id") Long adminUserId, @PathVariable Long memberId){
+        userService.releaseDormantMember(adminUserId, memberId);
+        ApiResponse<Void> apiResponse = ApiResponse.ok("휴면 계정을 해제했습니다.", null);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
+
+    @DeleteMapping("/{memberId}")
+    public ResponseEntity<ApiResponse<Void>> forceWithdraw(@RequestHeader("X-User-Id") Long adminUserId, @PathVariable Long memberId){
+        userService.forceWithdraw(adminUserId, memberId);
+        ApiResponse<Void> apiResponse = ApiResponse.ok("회원을 강제 탈퇴했습니다.", null);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
 }

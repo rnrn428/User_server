@@ -194,6 +194,35 @@ public class UserService {
         return userRepository.existsByNickName(nickName);
     }
 
+    @Transactional
+    public void releaseDormantMember(Long adminUserId, Long memberId){
+        requireAdmin(adminUserId);
+        User member = userRepository.findById(memberId).orElseThrow(UserNotFoundException::new);
+
+        if(member.getStatus() != UserStatus.DORMANT){
+            throw new IllegalArgumentException("휴면 상태의 회원만 해제할 수 있습니다.");
+        }
+
+        member.releaseDormant();
+    }
+
+    @Transactional
+    public void forceWithdraw(Long adminUserId, Long memberId){
+        requireAdmin(adminUserId);
+
+        User member = userRepository.findById(memberId).orElseThrow(UserNotFoundException::new);
+
+        if(member.getRole() == Role.ADMIN){
+            throw new IllegalArgumentException("관리자 계정은 강제 탈퇴할 수 없습니다.");
+        }
+
+        if(member.getStatus() == UserStatus.DELETED){
+            throw new IllegalArgumentException("이미 탈퇴한 회원입니다.");
+        }
+
+        member.withdraw();
+        refreshTokenService.revokeAllRefreshTokens(memberId);
+    }
     // 재배 멤버 초대용: 닉네임 부분일치 또는 이메일 완전일치로 활성 사용자 검색
     public List<UserSearchResponse> searchUsers(String keyword){
         if(!StringUtils.hasText(keyword)){
@@ -215,14 +244,13 @@ public class UserService {
     public Page<MemberSummaryResponse> getMembers(Long adminUserId, String statusFilter, Pageable pageable) {
         requireAdmin(adminUserId);
 
-        Page<User> users;
-        if ("withdrawn".equalsIgnoreCase(statusFilter)) {
-                users = userRepository.findAllByStatus(UserStatus.DELETED, pageable);
-        } else if ("active".equalsIgnoreCase(statusFilter)) {
-            users = userRepository.findAllByStatusNot(UserStatus.DELETED, pageable);
-        } else {
-            throw new IllegalArgumentException("지원하지 않는 회원 상태입니다.");
-        }
+        Page<User> users = switch (statusFilter.toLowerCase()){
+            case "active" -> userRepository.findAllByStatus(UserStatus.ACTIVE, pageable);
+            case "dormant" -> userRepository.findAllByStatus(UserStatus.DORMANT, pageable);
+            case "withdrawn" -> userRepository.findAllByStatus(UserStatus.DELETED, pageable);
+            default -> throw new IllegalArgumentException("지원하지 않는 회원 상태입니다.");
+        };
+
         return users.map(MemberSummaryResponse::from);
     }
 
