@@ -11,7 +11,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import site.yesaido.user_server.domain.email.service.EmailService;
 import site.yesaido.user_server.domain.user.dto.MemberSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
@@ -92,12 +95,52 @@ class UserServiceTest {
             given(passwordEncoder.encode(requestDto.getPassword())).willReturn("$2a$10$encodedPassword");
             given(userRepository.save(any(User.class))).willReturn(savedUser);
 
-            UserSignResponse responseDto = userService.signUp(requestDto);
+            UserSignResponse responseDto = userService.signUp(requestDto, null);
 
             assertThat(responseDto).isNotNull();
             assertThat(responseDto.getEmail()).isEqualTo("rnrn428@naver.com");
             assertThat(responseDto.getNickName()).isEqualTo("duplicate");
             verify(userRepository, times(1)).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("프로필 사진을 포함해 가입하면 MinIO와 프로필 이미지 정보를 저장한다")
+        void success_signUpWithProfileImage() {
+            UserSignUpRequest requestDto = UserSignUpRequest.builder()
+                    .email("image@test.com")
+                    .password("password123!")
+                    .nickName("image-user")
+                    .role(Role.USER)
+                    .build();
+            User savedUser = User.builder()
+                    .email("image@test.com")
+                    .password("encoded-password")
+                    .nickName("image-user")
+                    .status(UserStatus.ACTIVE)
+                    .role(Role.USER)
+                    .build();
+            ReflectionTestUtils.setField(savedUser, "id", 1L);
+            MockMultipartFile profileImage = new MockMultipartFile(
+                    "profileImage", "profile.png", "image/png", "image-content".getBytes()
+            );
+
+            given(emailService.isSignupEmailVerified(requestDto.getEmail())).willReturn(true);
+            given(userRepository.findByEmail(requestDto.getEmail())).willReturn(Optional.empty());
+            given(userRepository.existsByNickName(requestDto.getNickName())).willReturn(false);
+            given(passwordEncoder.encode(requestDto.getPassword())).willReturn("encoded-password");
+            given(userRepository.save(any(User.class))).willReturn(savedUser);
+            given(minioService.uploadProfileImage(1L, profileImage)).willReturn("profiles/1/profile.png");
+
+            TransactionSynchronizationManager.initSynchronization();
+            try {
+                userService.signUp(requestDto, profileImage);
+            } finally {
+                TransactionSynchronizationManager.clearSynchronization();
+            }
+
+            verify(minioService).uploadProfileImage(1L, profileImage);
+            verify(profileImageRepository).save(any());
+            verify(emailService).clearSignupEmailVerification(requestDto.getEmail());
         }
 
         @Test
@@ -114,7 +157,7 @@ class UserServiceTest {
             given(emailService.isSignupEmailVerified(requestDto.getEmail())).willReturn(true);
             given(userRepository.findByEmail(requestDto.getEmail())).willReturn(Optional.of(existingUser));
 
-            assertThrows(EmailDuplicationException.class, () -> userService.signUp(requestDto));
+            assertThrows(EmailDuplicationException.class, () -> userService.signUp(requestDto, null));
 
             verify(userRepository, never()).save(any(User.class));
 
@@ -134,7 +177,7 @@ class UserServiceTest {
             given(userRepository.findByEmail(requestDto.getEmail())).willReturn(Optional.empty());
             given(userRepository.existsByNickName(requestDto.getNickName())).willReturn(true);
 
-            assertThrows(NicknameDuplicationException.class, () -> userService.signUp(requestDto));
+            assertThrows(NicknameDuplicationException.class, () -> userService.signUp(requestDto, null));
 
             verify(userRepository, never()).save(any(User.class));
         }
@@ -150,7 +193,7 @@ class UserServiceTest {
 
             given(emailService.isSignupEmailVerified(requestDto.getEmail())).willReturn(false);
 
-            assertThatThrownBy(() -> userService.signUp(requestDto))
+            assertThatThrownBy(() -> userService.signUp(requestDto, null))
                     .isInstanceOf(EmailVerificationRequiredException.class);
 
             verify(userRepository, never()).save(any(User.class));
@@ -216,7 +259,7 @@ class UserServiceTest {
             given(passwordEncoder.encode(requestDto.getPassword())).willReturn("encodedPassword");
             given(userRepository.save(any(User.class))).willReturn(newUser);
 
-            UserSignResponse response = userService.signUp(requestDto);
+            UserSignResponse response = userService.signUp(requestDto, null);
 
             assertThat(response.getId()).isEqualTo(2L);
             assertThat(withdrawnUser.getEmail()).startsWith("deleted-1-");
@@ -690,8 +733,6 @@ class UserServiceTest {
         }
     }
 }
-
-
 
 
 
