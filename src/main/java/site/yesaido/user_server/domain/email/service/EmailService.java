@@ -20,7 +20,7 @@ public class EmailService {
     private final StringRedisTemplate stringRedisTemplate;
     private static final SecureRandom secureRandom = new SecureRandom();
 
-    private static final String CODE_PREFIX = "EMAIL_VERIFY:"; // 이메일당 6자리 인증번호 저장용 (수명 : 5분)
+    private static final String CODE_PREFIX = "EMAIL_VERIFY:"; // 이메일당 6자리 인증번호 저장용 (수명 : 3분)
     private static final String RESEND_WAIT_PREFIX = "EMAIL_RESEND_WAIT:"; // 연속 클릭 방지용 (수명 : 30초)
     private static final String VERIFY_FAIL_PREFIX = "EMAIL_VERIFY_FAIL:"; // 인증번호 틀린 횟수 카운트용 (수명 : 5분)
     private static final String SIGNUP_VERIFIED_PREFIX = "EMAIL_SIGNUP_VERIFIED:";
