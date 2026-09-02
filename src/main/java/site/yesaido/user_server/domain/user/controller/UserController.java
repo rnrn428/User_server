@@ -12,9 +12,9 @@ import site.yesaido.user_server.domain.user.dto.profile.PasswordVerifyRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
+import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
-import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
 import site.yesaido.user_server.domain.user.dto.withdraw.WithdrawRequest;
 import site.yesaido.user_server.domain.user.service.UserService;
 import site.yesaido.user_server.global.common.ApiResponse;
@@ -105,6 +105,13 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> withdraw(@RequestHeader("X-User-Id") Long userId, @Valid @RequestBody WithdrawRequest request){
         userService.withdraw(userId, request.password());
         ApiResponse<Void> apiResponse = ApiResponse.ok("회원 탈퇴가 완료되었습니다.");
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
+
+    @DeleteMapping("/withdraw/oauth")
+    public ResponseEntity<ApiResponse<Void>> withdrawOAuth(@RequestHeader("X-User-Id") Long userId){
+        userService.withdrawOAuth(userId);
+        ApiResponse<Void> apiResponse = ApiResponse.ok("탈퇴가 완료되었습니다.");
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 

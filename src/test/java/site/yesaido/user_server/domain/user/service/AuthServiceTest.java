@@ -13,6 +13,7 @@ import site.yesaido.user_server.domain.user.dto.login.PasswordResetRequest;
 import site.yesaido.user_server.domain.user.dto.oauth.GoogleLoginRequest;
 import site.yesaido.user_server.domain.user.dto.token.RefreshTokenRotation;
 import site.yesaido.user_server.domain.user.dto.token.TokenResponse;
+import site.yesaido.user_server.domain.user.entity.OAuthUser;
 import site.yesaido.user_server.domain.user.entity.User;
 import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
@@ -20,10 +21,12 @@ import site.yesaido.user_server.domain.user.exception.DormantUserException;
 import site.yesaido.user_server.domain.user.exception.InvalidPasswordException;
 import site.yesaido.user_server.domain.user.exception.InvalidTokenException;
 import site.yesaido.user_server.domain.user.repository.UserRepository;
+import site.yesaido.user_server.domain.user.repository.OAuthUserRepository;
 import site.yesaido.user_server.domain.user.service.jwt.AccessTokenBlacklistService;
 import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenGraceService;
 import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
 import site.yesaido.user_server.global.jwt.AccessTokenProvider;
+import site.yesaido.user_server.global.oauth.GoogleIdentity;
 import site.yesaido.user_server.global.oauth.GoogleTokenVerifier;
 
 import java.util.Optional;
@@ -45,6 +48,7 @@ class AuthServiceTest {
     @Mock private RefreshTokenGraceService refreshTokenGraceService;
     @Mock private AccessTokenBlacklistService accessTokenBlacklistService;
     @Mock private GoogleTokenVerifier googleTokenVerifier;
+    @Mock private OAuthUserRepository oAuthUserRepository;
 
     @InjectMocks private AuthService authService;
 
@@ -95,17 +99,73 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("유효한 Google ID Token으로 기존 사용자가 로그인할 수 있다")
-        void googleLoginSuccess() {
+        @DisplayName("이미 연결된 Google 계정은 sub로 기존 회원을 찾아 로그인한다")
+        void googleLoginWithExistingOAuthLink() {
             GoogleLoginRequest request = new GoogleLoginRequest("google-id-token", "ignored@email.com", "nickname");
             User user = createUser(2L, "google@gmail.com", null);
-            given(googleTokenVerifier.verifyAndGetEmail(request.idToken())).willReturn("google@gmail.com");
-            given(userRepository.findByEmail("google@gmail.com")).willReturn(Optional.of(user));
+            GoogleIdentity identity = new GoogleIdentity("google-subject", "google@gmail.com", "Google User");
+            OAuthUser oauthUser = OAuthUser.builder().user(user).provider("GOOGLE")
+                    .providerSubjectId(identity.subject()).build();
+            given(googleTokenVerifier.verify(request.idToken())).willReturn(identity);
+            given(oAuthUserRepository.findByProviderAndProviderSubjectId("GOOGLE", identity.subject()))
+                    .willReturn(Optional.of(oauthUser));
             given(refreshTokenService.createRefreshTokenForUser(user.getId())).willReturn("refresh-token");
             given(accessTokenProvider.createAccessToken(user.getId(), user.getRole())).willReturn("access-token");
             given(accessTokenProvider.getExpirationTime("access-token")).willReturn(1L);
 
             assertThat(authService.loginWithGoogle(request).getAccessToken()).isEqualTo("access-token");
+
+            verify(userRepository, never()).findByEmail(anyString());
+            verify(oAuthUserRepository, never()).save(org.mockito.ArgumentMatchers.any(OAuthUser.class));
+        }
+
+        @Test
+        @DisplayName("처음 온 Google 계정과 동일 이메일의 로컬 회원을 연결한다")
+        void googleLoginLinksExistingLocalUser() {
+            GoogleLoginRequest request = new GoogleLoginRequest("google-id-token", "ignored@email.com", "nickname");
+            GoogleIdentity identity = new GoogleIdentity("google-subject", "local@gmail.com", "Google User");
+            User localUser = createUser(3L, identity.email(), "encoded-password");
+            given(googleTokenVerifier.verify(request.idToken())).willReturn(identity);
+            given(oAuthUserRepository.findByProviderAndProviderSubjectId("GOOGLE", identity.subject()))
+                    .willReturn(Optional.empty());
+            given(userRepository.findByEmail(identity.email())).willReturn(Optional.of(localUser));
+            given(refreshTokenService.createRefreshTokenForUser(localUser.getId())).willReturn("refresh-token");
+            given(accessTokenProvider.createAccessToken(localUser.getId(), localUser.getRole())).willReturn("access-token");
+            given(accessTokenProvider.getExpirationTime("access-token")).willReturn(1L);
+
+            authService.loginWithGoogle(request);
+
+            verify(userRepository, never()).save(org.mockito.ArgumentMatchers.any(User.class));
+            verify(oAuthUserRepository).save(org.mockito.ArgumentMatchers.argThat(oauthUser ->
+                    oauthUser.getUser() == localUser
+                            && "GOOGLE".equals(oauthUser.getProvider())
+                            && identity.subject().equals(oauthUser.getProviderSubjectId())
+            ));
+        }
+
+        @Test
+        @DisplayName("처음 온 Google 계정은 새 회원과 OAuth 연결 기록을 생성한다")
+        void googleLoginCreatesUserAndOAuthLink() {
+            GoogleLoginRequest request = new GoogleLoginRequest("google-id-token", "ignored@email.com", "nickname");
+            GoogleIdentity identity = new GoogleIdentity("google-subject", "new@gmail.com", "New Google User");
+            User newUser = createUser(4L, identity.email(), null);
+            given(googleTokenVerifier.verify(request.idToken())).willReturn(identity);
+            given(oAuthUserRepository.findByProviderAndProviderSubjectId("GOOGLE", identity.subject()))
+                    .willReturn(Optional.empty());
+            given(userRepository.findByEmail(identity.email())).willReturn(Optional.empty());
+            given(userRepository.save(org.mockito.ArgumentMatchers.any(User.class))).willReturn(newUser);
+            given(refreshTokenService.createRefreshTokenForUser(newUser.getId())).willReturn("refresh-token");
+            given(accessTokenProvider.createAccessToken(newUser.getId(), newUser.getRole())).willReturn("access-token");
+            given(accessTokenProvider.getExpirationTime("access-token")).willReturn(1L);
+
+            authService.loginWithGoogle(request);
+
+            verify(userRepository).save(org.mockito.ArgumentMatchers.any(User.class));
+            verify(oAuthUserRepository).save(org.mockito.ArgumentMatchers.argThat(oauthUser ->
+                    oauthUser.getUser() == newUser
+                            && "GOOGLE".equals(oauthUser.getProvider())
+                            && identity.subject().equals(oauthUser.getProviderSubjectId())
+            ));
         }
     }
 

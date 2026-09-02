@@ -20,7 +20,7 @@ public class EmailService {
     private final StringRedisTemplate stringRedisTemplate;
     private static final SecureRandom secureRandom = new SecureRandom();
 
-    private static final String CODE_PREFIX = "EMAIL_VERIFY:"; // 이메일당 6자리 인증번호 저장용 (수명 : 5분)
+    private static final String CODE_PREFIX = "EMAIL_VERIFY:"; // 이메일당 6자리 인증번호 저장용 (수명 : 3분)
     private static final String RESEND_WAIT_PREFIX = "EMAIL_RESEND_WAIT:"; // 연속 클릭 방지용 (수명 : 30초)
     private static final String VERIFY_FAIL_PREFIX = "EMAIL_VERIFY_FAIL:"; // 인증번호 틀린 횟수 카운트용 (수명 : 5분)
     private static final String SIGNUP_VERIFIED_PREFIX = "EMAIL_SIGNUP_VERIFIED:";
@@ -44,11 +44,11 @@ public class EmailService {
         message.setFrom(fromEmail);
         message.setTo(toEmail);
         message.setSubject("[MushMush] 이메일 본인 인증번호입니다.");
-        message.setText("안녕하세요! MushMush 인증번호는 [" + authCode + "] 입니다.\n30초 이내에 입력해 주세요.");
+        message.setText("안녕하세요! MushMush 인증번호는 [" + authCode + "] 입니다.\n3분 이내에 입력해 주세요.");
 
         asyncMailSender.sendMailAsync(message);
 
-        stringRedisTemplate.opsForValue().set(getCodeKey(toEmail), authCode, 30, TimeUnit.SECONDS);
+        stringRedisTemplate.opsForValue().set(getCodeKey(toEmail), authCode, 3, TimeUnit.MINUTES);
         stringRedisTemplate.opsForValue().set(getCooldownKey(toEmail), "1", RESEND_WAIT_SECONDS, TimeUnit.SECONDS);
         stringRedisTemplate.delete(getFailCountKey(toEmail));
     }

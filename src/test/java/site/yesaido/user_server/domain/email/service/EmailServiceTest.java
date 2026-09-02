@@ -47,7 +47,7 @@ class EmailServiceTest {
     @DisplayName("이메일 인증번호 발송 테스트")
     class SendVerificationEmailTest{
         @Test
-        @DisplayName("성공 : 이메일 발송 및 레디스 5분 TTL 저장, 60초 쿨다운 등록")
+        @DisplayName("성공 : 이메일 발송 및 레디스 3분 TTL 저장, 30초 쿨다운 등록")
         void success_sendVerificationEmail(){
             String toEmail = "test@naver.com";
             given(stringRedisTemplate.hasKey("EMAIL_RESEND_WAIT:" + toEmail)).willReturn(false);
@@ -56,7 +56,7 @@ class EmailServiceTest {
             emailService.sendVerificationEmail(toEmail);
 
             verify(asyncMailSender).sendMailAsync(any(SimpleMailMessage.class));
-            verify(valueOperations).set(eq("EMAIL_VERIFY:" + toEmail), anyString(), eq(30L), eq(TimeUnit.SECONDS));
+            verify(valueOperations).set(eq("EMAIL_VERIFY:" + toEmail), anyString(), eq(3L), eq(TimeUnit.MINUTES));
             verify(valueOperations).set("EMAIL_RESEND_WAIT:" + toEmail, "1", 30L, TimeUnit.SECONDS);
         }
 

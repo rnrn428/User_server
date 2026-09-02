@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import site.yesaido.user_server.domain.email.dto.EmailSendRequest;
 import site.yesaido.user_server.domain.user.dto.login.LoginRequest;
 import site.yesaido.user_server.domain.user.dto.login.PasswordResetRequest;
 import site.yesaido.user_server.domain.user.dto.oauth.GoogleLoginRequest;
@@ -60,6 +61,13 @@ public class AuthController {
         authService.resetPassword(resetRequest);
 
         ApiResponse<Void> response = ApiResponse.ok("비밀번호가 변경되었습니다.");
+        return ResponseEntity.status(response.httpStatus()).body(response);
+    }
+
+    @PostMapping("/password-reset/email/send")
+    public ResponseEntity<ApiResponse<Void>> sendPasswordResetEmail(@Valid @RequestBody EmailSendRequest request){
+        authService.sendPasswordResetEmail(request.getEmail());
+        ApiResponse<Void> response = ApiResponse.ok("비밀번호 재설정 인증번호가 발송되었습니다.");
         return ResponseEntity.status(response.httpStatus()).body(response);
     }
 

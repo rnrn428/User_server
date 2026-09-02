@@ -22,9 +22,9 @@ import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
+import site.yesaido.user_server.domain.user.dto.signup.SignupEligibility;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
-import site.yesaido.user_server.domain.user.dto.signup.SignupEligibility;
 import site.yesaido.user_server.domain.user.entity.User;
 import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
@@ -32,10 +32,10 @@ import site.yesaido.user_server.domain.user.exception.*;
 import site.yesaido.user_server.domain.user.repository.UserRepository;
 import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
 
-import java.util.List;
-import java.util.Optional;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -585,6 +585,37 @@ class UserServiceTest {
         }
 
         @Test
+        @DisplayName("Google 전용 계정은 현재 로그인 인증으로 탈퇴하고 모든 Refresh Token을 폐기한다")
+        void withdrawOAuth_softDeletesAndRevokesRefreshTokens() {
+            User user = User.builder()
+                    .id(1L)
+                    .password(null)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+            userService.withdrawOAuth(1L);
+
+            assertThat(user.getStatus()).isEqualTo(UserStatus.DELETED);
+            verify(refreshTokenService).revokeAllRefreshTokens(1L);
+        }
+
+        @Test
+        @DisplayName("비밀번호가 있는 계정은 OAuth 탈퇴 경로를 사용할 수 없다")
+        void withdrawOAuth_rejectsAccountWithPassword() {
+            User user = User.builder().id(1L).password("encoded-password").status(UserStatus.ACTIVE).build();
+            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+            assertThatThrownBy(() -> userService.withdrawOAuth(1L))
+                    .isInstanceOf(InvalidPasswordException.class)
+                    .hasMessage("비밀번호가 설정된 계정은 비밀번호로 탈퇴해 주세요.");
+
+            assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+            verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
+        }
+
+        @Test
         @DisplayName("이미 탈퇴한 회원은 다시 탈퇴할 수 없다")
         void withdrawAlreadyDeletedUser_throwsException() {
             User user = User.builder()
@@ -880,8 +911,6 @@ class UserServiceTest {
         }
     }
 }
-
-
 
 
 

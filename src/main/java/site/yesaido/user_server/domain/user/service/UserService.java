@@ -18,9 +18,9 @@ import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
+import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
-import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
 import site.yesaido.user_server.domain.user.entity.ProfileImage;
 import site.yesaido.user_server.domain.user.entity.User;
 import site.yesaido.user_server.domain.user.entity.en.Role;
@@ -30,10 +30,10 @@ import site.yesaido.user_server.domain.user.repository.ProfileImageRepository;
 import site.yesaido.user_server.domain.user.repository.UserRepository;
 import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
 
-import java.util.Collections;
-import java.util.List;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -175,8 +175,7 @@ public class UserService {
             throw new InvalidPasswordException("비밀번호가 일치하지 않습니다.");
         }
 
-        user.withdraw();
-        refreshTokenService.revokeAllRefreshTokens(userId);
+        completeWithdrawal(user);
     }
 
     public SignupEmailVerificationResponse verifySignupEmail(String email, String code) {
@@ -188,6 +187,17 @@ public class UserService {
         return userRepository.findByEmail(normalizedEmail)
                 .map(this::getSignupEligibility)
                 .orElseGet(SignupEmailVerificationResponse::available);
+    }
+
+    @Transactional
+    public void withdrawOAuth(Long userId){
+        User user = getUserById(userId);
+
+        if(user.getPassword() != null){
+            throw new InvalidPasswordException("비밀번호가 설정된 계정은 비밀번호로 탈퇴해 주세요.");
+        }
+
+        completeWithdrawal(user);
     }
 
     public boolean existNickname(String nickName){
@@ -344,5 +354,14 @@ public class UserService {
             minioService.deleteQuietly(objectKey);
             throw e;
         }
+    }
+
+    private void completeWithdrawal(User user) {
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new AlreadyWithdrawnException();
+        }
+
+        user.withdraw();
+        refreshTokenService.revokeAllRefreshTokens(user.getId());
     }
 }

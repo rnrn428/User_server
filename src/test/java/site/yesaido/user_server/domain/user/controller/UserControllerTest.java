@@ -15,10 +15,10 @@ import site.yesaido.user_server.domain.user.dto.profile.PasswordVerifyRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
-import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
-import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
 import site.yesaido.user_server.domain.user.dto.signup.SignupEligibility;
 import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
+import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
+import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
 import site.yesaido.user_server.domain.user.dto.withdraw.WithdrawRequest;
 import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
@@ -245,5 +245,16 @@ class UserControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().message()).isEqualTo("회원 탈퇴가 완료되었습니다.");
         verify(userService).withdraw(1L, "password123!");
+    }
+
+    @Test
+    @DisplayName("Google 전용 계정 탈퇴 요청은 현재 로그인한 사용자의 OAuth 탈퇴 서비스에 위임한다")
+    void withdrawOAuth_success() {
+        ResponseEntity<ApiResponse<Void>> response = userController.withdrawOAuth(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).isEqualTo("탈퇴가 완료되었습니다.");
+        verify(userService).withdrawOAuth(1L);
     }
 }
