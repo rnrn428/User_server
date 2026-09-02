@@ -44,11 +44,11 @@ public class EmailService {
         message.setFrom(fromEmail);
         message.setTo(toEmail);
         message.setSubject("[MushMush] 이메일 본인 인증번호입니다.");
-        message.setText("안녕하세요! MushMush 인증번호는 [" + authCode + "] 입니다.\n30초 이내에 입력해 주세요.");
+        message.setText("안녕하세요! MushMush 인증번호는 [" + authCode + "] 입니다.\n3분 이내에 입력해 주세요.");
 
         asyncMailSender.sendMailAsync(message);
 
-        stringRedisTemplate.opsForValue().set(getCodeKey(toEmail), authCode, 30, TimeUnit.SECONDS);
+        stringRedisTemplate.opsForValue().set(getCodeKey(toEmail), authCode, 3, TimeUnit.MINUTES);
         stringRedisTemplate.opsForValue().set(getCooldownKey(toEmail), "1", RESEND_WAIT_SECONDS, TimeUnit.SECONDS);
         stringRedisTemplate.delete(getFailCountKey(toEmail));
     }
