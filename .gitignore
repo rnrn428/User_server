@@ -20,6 +20,7 @@ target/
 *.ipr
 .env
 application-dev.yml
+/User_note/
 **/application-dev2.yml
 
 

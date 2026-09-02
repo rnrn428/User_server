@@ -24,7 +24,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "email", nullable = false)
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
 
     @Column(name = "password")
@@ -105,6 +105,10 @@ public class User {
     public void withdraw(){
         this.status = UserStatus.DELETED;
         this.deletedAt = LocalDateTime.now(KOREA_ZONE);
+    }
+
+    public void releaseDormant(){
+        this.status = UserStatus.ACTIVE;
     }
 
     public void anonymize() {

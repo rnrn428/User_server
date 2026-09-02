@@ -27,7 +27,7 @@ public class OAuthUser {
     private String provider;
 
     @Column(name = "provider_user_id", nullable = false, length = 255)
-    private String providerUserId;
+    private String providerSubjectId;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

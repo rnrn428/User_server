@@ -8,16 +8,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockMultipartFile;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
 import site.yesaido.user_server.domain.user.dto.profile.PasswordVerifyRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
-import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
-import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
 import site.yesaido.user_server.domain.user.dto.signup.SignupEligibility;
 import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
+import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
+import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
 import site.yesaido.user_server.domain.user.dto.withdraw.WithdrawRequest;
 import site.yesaido.user_server.domain.user.entity.en.Role;
 import site.yesaido.user_server.domain.user.entity.en.UserStatus;
@@ -83,14 +84,44 @@ class UserControllerTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        given(userService.signUp(request)).willReturn(expected);
+        given(userService.signUp(request, null)).willReturn(expected);
 
-        ResponseEntity<ApiResponse<UserSignResponse>> response = userController.signUp(request);
+        ResponseEntity<ApiResponse<UserSignResponse>> response = userController.signUp(request, null);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data().getEmail()).isEqualTo("test@test.com");
         assertThat(response.getBody().data().getNickName()).isEqualTo("닉네임");
+    }
+
+    @Test
+    @DisplayName("프로필 사진을 포함한 회원가입 성공 시 201과 가입 정보를 반환한다")
+    void signUpWithProfileImage_success() {
+        UserSignUpRequest request = UserSignUpRequest.builder()
+                .email("test@test.com")
+                .password("password1!")
+                .nickName("닉네임")
+                .role(Role.USER)
+                .build();
+        MockMultipartFile profileImage = new MockMultipartFile(
+                "profileImage", "profile.png", "image/png", "image-content".getBytes()
+        );
+        UserSignResponse expected = UserSignResponse.builder()
+                .id(1L)
+                .email("test@test.com")
+                .nickName("닉네임")
+                .role(Role.USER)
+                .status(UserStatus.ACTIVE)
+                .createdAt(LocalDateTime.now())
+                .build();
+        given(userService.signUp(request, profileImage)).willReturn(expected);
+
+        ResponseEntity<ApiResponse<UserSignResponse>> response = userController.signUp(request, profileImage);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().data()).isEqualTo(expected);
+        verify(userService).signUp(request, profileImage);
     }
 
     @Test
@@ -214,5 +245,16 @@ class UserControllerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().message()).isEqualTo("회원 탈퇴가 완료되었습니다.");
         verify(userService).withdraw(1L, "password123!");
+    }
+
+    @Test
+    @DisplayName("Google 전용 계정 탈퇴 요청은 현재 로그인한 사용자의 OAuth 탈퇴 서비스에 위임한다")
+    void withdrawOAuth_success() {
+        ResponseEntity<ApiResponse<Void>> response = userController.withdrawOAuth(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message()).isEqualTo("탈퇴가 완료되었습니다.");
+        verify(userService).withdrawOAuth(1L);
     }
 }

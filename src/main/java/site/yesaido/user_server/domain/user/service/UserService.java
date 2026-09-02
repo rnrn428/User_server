@@ -18,9 +18,9 @@ import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
 import site.yesaido.user_server.domain.user.dto.profile.ProfileUpdateRequest;
 import site.yesaido.user_server.domain.user.dto.profile.UserProfileResponse;
 import site.yesaido.user_server.domain.user.dto.search.UserSearchResponse;
+import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
-import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationResponse;
 import site.yesaido.user_server.domain.user.entity.ProfileImage;
 import site.yesaido.user_server.domain.user.entity.User;
 import site.yesaido.user_server.domain.user.entity.en.Role;
@@ -30,10 +30,10 @@ import site.yesaido.user_server.domain.user.repository.ProfileImageRepository;
 import site.yesaido.user_server.domain.user.repository.UserRepository;
 import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
 
-import java.util.Collections;
-import java.util.List;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -51,7 +51,7 @@ public class UserService {
     private final EmailService emailService;
 
     @Transactional
-    public UserSignResponse signUp(UserSignUpRequest signUpRequestDto){
+    public UserSignResponse signUp(UserSignUpRequest signUpRequestDto, MultipartFile profileImage){
         String email = signUpRequestDto.getEmail().trim();
         validateSignupEmailVerification(email);
 
@@ -80,11 +80,15 @@ public class UserService {
                 .build();
 
         User savedUser = userRepository.save(user);
+
+        if(profileImage != null && !profileImage.isEmpty()){
+            saveInitialProfileImage(savedUser, profileImage);
+        }
         emailService.clearSignupEmailVerification(email);
 
         return UserSignResponse.from(savedUser);
-
     }
+
 
     public User getUserById(Long userId){
         User user = userRepository.findById(userId)
@@ -171,8 +175,7 @@ public class UserService {
             throw new InvalidPasswordException("비밀번호가 일치하지 않습니다.");
         }
 
-        user.withdraw();
-        refreshTokenService.revokeAllRefreshTokens(userId);
+        completeWithdrawal(user);
     }
 
     public SignupEmailVerificationResponse verifySignupEmail(String email, String code) {
@@ -186,10 +189,50 @@ public class UserService {
                 .orElseGet(SignupEmailVerificationResponse::available);
     }
 
+    @Transactional
+    public void withdrawOAuth(Long userId){
+        User user = getUserById(userId);
+
+        if(user.getPassword() != null){
+            throw new InvalidPasswordException("비밀번호가 설정된 계정은 비밀번호로 탈퇴해 주세요.");
+        }
+
+        completeWithdrawal(user);
+    }
+
     public boolean existNickname(String nickName){
         return userRepository.existsByNickName(nickName);
     }
 
+    @Transactional
+    public void releaseDormantMember(Long adminUserId, Long memberId){
+        requireAdmin(adminUserId);
+        User member = userRepository.findById(memberId).orElseThrow(UserNotFoundException::new);
+
+        if(member.getStatus() != UserStatus.DORMANT){
+            throw new IllegalArgumentException("휴면 상태의 회원만 해제할 수 있습니다.");
+        }
+
+        member.releaseDormant();
+    }
+
+    @Transactional
+    public void forceWithdraw(Long adminUserId, Long memberId){
+        requireAdmin(adminUserId);
+
+        User member = userRepository.findById(memberId).orElseThrow(UserNotFoundException::new);
+
+        if(member.getRole() == Role.ADMIN){
+            throw new IllegalArgumentException("관리자 계정은 강제 탈퇴할 수 없습니다.");
+        }
+
+        if(member.getStatus() == UserStatus.DELETED){
+            throw new IllegalArgumentException("이미 탈퇴한 회원입니다.");
+        }
+
+        member.withdraw();
+        refreshTokenService.revokeAllRefreshTokens(memberId);
+    }
     // 재배 멤버 초대용: 닉네임 부분일치 또는 이메일 완전일치로 활성 사용자 검색
     public List<UserSearchResponse> searchUsers(String keyword){
         if(!StringUtils.hasText(keyword)){
@@ -211,14 +254,13 @@ public class UserService {
     public Page<MemberSummaryResponse> getMembers(Long adminUserId, String statusFilter, Pageable pageable) {
         requireAdmin(adminUserId);
 
-        Page<User> users;
-        if ("withdrawn".equalsIgnoreCase(statusFilter)) {
-                users = userRepository.findAllByStatus(UserStatus.DELETED, pageable);
-        } else if ("active".equalsIgnoreCase(statusFilter)) {
-            users = userRepository.findAllByStatusNot(UserStatus.DELETED, pageable);
-        } else {
-            throw new IllegalArgumentException("지원하지 않는 회원 상태입니다.");
-        }
+        Page<User> users = switch (statusFilter.toLowerCase()){
+            case "active" -> userRepository.findAllByStatus(UserStatus.ACTIVE, pageable);
+            case "dormant" -> userRepository.findAllByStatus(UserStatus.DORMANT, pageable);
+            case "withdrawn" -> userRepository.findAllByStatus(UserStatus.DELETED, pageable);
+            default -> throw new IllegalArgumentException("지원하지 않는 회원 상태입니다.");
+        };
+
         return users.map(MemberSummaryResponse::from);
     }
 
@@ -299,5 +341,27 @@ public class UserService {
                 .map(ProfileImage::getObjectKey)
                 .map(minioService::presignedGetUrl)
                 .orElse(null);
+    }
+
+    private void saveInitialProfileImage(User user, MultipartFile profileImage){
+        String objectKey = minioService.uploadProfileImage(user.getId(), profileImage);
+        try{
+            ProfileImage image = ProfileImage.create(user, objectKey);
+            profileImageRepository.save(image);
+
+            registerMinioCleanUp(null, objectKey);
+        }catch (Exception e){
+            minioService.deleteQuietly(objectKey);
+            throw e;
+        }
+    }
+
+    private void completeWithdrawal(User user) {
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new AlreadyWithdrawnException();
+        }
+
+        user.withdraw();
+        refreshTokenService.revokeAllRefreshTokens(user.getId());
     }
 }
