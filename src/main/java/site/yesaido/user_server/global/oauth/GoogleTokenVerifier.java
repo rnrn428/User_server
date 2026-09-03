@@ -6,6 +6,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
+import site.yesaido.user_server.domain.user.exception.GoogleEmailNotVerifiedException;
+import site.yesaido.user_server.domain.user.exception.InvalidGoogleIdTokenException;
 
 @Slf4j
 @Component
@@ -19,7 +21,7 @@ public class GoogleTokenVerifier {
 
             Boolean emailVerified = jwt.getClaim("email_verified");
             if(!Boolean.TRUE.equals(emailVerified)){
-                throw new IllegalArgumentException("Google 이메일 인증이 완료되지 않은 계정입니다.");
+                throw new GoogleEmailNotVerifiedException("Google 이메일 인증이 완료되지 않은 계정입니다.");
             }
             return new GoogleIdentity(
                     jwt.getSubject(),
@@ -28,7 +30,7 @@ public class GoogleTokenVerifier {
             );
         }catch (JwtException e){
             log.warn("Google ID Token 검증 실패 : {}", e.getMessage());
-            throw new IllegalArgumentException("유효하지 않은 Google ID Token입니다.");
+            throw new InvalidGoogleIdTokenException("유효하지 않은 Google ID Token입니다.");
         }
     }
 }
