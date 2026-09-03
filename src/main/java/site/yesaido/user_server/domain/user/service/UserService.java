@@ -210,7 +210,7 @@ public class UserService {
         User member = userRepository.findById(memberId).orElseThrow(UserNotFoundException::new);
 
         if(member.getStatus() != UserStatus.DORMANT){
-            throw new IllegalArgumentException("휴면 상태의 회원만 해제할 수 있습니다.");
+            throw new InvalidMemberStatusException("휴면 상태의 회원만 해제할 수 있습니다.");
         }
 
         member.releaseDormant();
@@ -223,11 +223,11 @@ public class UserService {
         User member = userRepository.findById(memberId).orElseThrow(UserNotFoundException::new);
 
         if(member.getRole() == Role.ADMIN){
-            throw new IllegalArgumentException("관리자 계정은 강제 탈퇴할 수 없습니다.");
+            throw new InvalidForceWithdrawalException("관리자 계정은 강제 탈퇴할 수 없습니다.");
         }
 
         if(member.getStatus() == UserStatus.DELETED){
-            throw new IllegalArgumentException("이미 탈퇴한 회원입니다.");
+            throw new AlreadyWithdrawnException("이미 탈퇴한 회원입니다.");
         }
 
         member.withdraw();
@@ -258,7 +258,7 @@ public class UserService {
             case "active" -> userRepository.findAllByStatus(UserStatus.ACTIVE, pageable);
             case "dormant" -> userRepository.findAllByStatus(UserStatus.DORMANT, pageable);
             case "withdrawn" -> userRepository.findAllByStatus(UserStatus.DELETED, pageable);
-            default -> throw new IllegalArgumentException("지원하지 않는 회원 상태입니다.");
+            default -> throw new InvalidMemberStatusException("지원하지 않는 회원 상태입니다.");
         };
 
         return users.map(MemberSummaryResponse::from);

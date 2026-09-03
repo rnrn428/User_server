@@ -116,7 +116,7 @@ public class AuthService {
         }
 
         if(user.getPassword() == null){
-            throw new IllegalArgumentException("소셜 로그인 계정은 비밀번호를 재설정할 수 없습니다.");
+            throw new SocialLoginPasswordResetNotAllowedException("소셜 로그인 계정은 비밀번호를 재설정할 수 없습니다.");
         }
 
         if(passwordEncoder.matches(resetRequest.newPassword(), user.getPassword())){
@@ -139,7 +139,7 @@ public class AuthService {
         }
 
         if(user.getPassword() == null){
-            throw new IllegalArgumentException("Google로 가입한 계정입니다. Google로 로그인해 주세요.");
+            throw new SocialLoginPasswordResetNotAllowedException("Google로 가입한 계정입니다. Google로 로그인해 주세요.");
         }
         emailService.sendVerificationEmail(normalizedEmail);
 

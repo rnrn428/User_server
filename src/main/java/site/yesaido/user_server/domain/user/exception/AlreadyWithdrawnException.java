@@ -1,6 +1,8 @@
 package site.yesaido.user_server.domain.user.exception;
 
-public class AlreadyWithdrawnException extends RuntimeException {
+import site.yesaido.common.exception.client.BadRequestException;
+
+public class AlreadyWithdrawnException extends BadRequestException {
     private static final String MESSAGE = "이미 탈퇴한 회원입니다.";
 
     public AlreadyWithdrawnException(){
@@ -8,6 +10,6 @@ public class AlreadyWithdrawnException extends RuntimeException {
     }
 
     public AlreadyWithdrawnException(String message) {
-        super(MESSAGE);
+        super(message);
     }
 }
