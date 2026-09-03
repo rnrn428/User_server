@@ -9,6 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import site.yesaido.user_server.domain.user.exception.GoogleEmailNotVerifiedException;
+import site.yesaido.user_server.domain.user.exception.InvalidGoogleIdTokenException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,7 +45,7 @@ class GoogleTokenVerifierTest {
         given(googleJwtDecoder.decode("unverified-token")).willReturn(jwt);
         given(jwt.getClaim("email_verified")).willReturn(false);
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(GoogleEmailNotVerifiedException.class,
                 () -> googleTokenVerifier.verify("unverified-token"));
     }
 
@@ -53,8 +55,8 @@ class GoogleTokenVerifierTest {
         given(googleJwtDecoder.decode("invalid-token"))
                 .willThrow(new BadJwtException("invalid"));
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
+        InvalidGoogleIdTokenException exception = assertThrows(
+                InvalidGoogleIdTokenException.class,
                 () -> googleTokenVerifier.verify("invalid-token")
         );
 

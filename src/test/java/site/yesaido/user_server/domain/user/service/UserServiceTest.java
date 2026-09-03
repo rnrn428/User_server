@@ -780,6 +780,21 @@ class UserServiceTest {
             assertThatThrownBy(() -> userService.getMembers(adminId, "active", pageable))
                     .isInstanceOf(UserNotFoundException.class);
         }
+
+        @Test
+        @DisplayName("예외 - 지원하지 않는 회원 상태 필터는 InvalidMemberStatusException을 던진다")
+        void getMembers_invalidStatusFilter_throwsException() {
+            Long adminId = 99L;
+            Pageable pageable = PageRequest.of(0, 8);
+            User admin = User.builder().id(adminId).role(Role.ADMIN).build();
+            given(userRepository.findById(adminId)).willReturn(Optional.of(admin));
+
+            assertThatThrownBy(() -> userService.getMembers(adminId, "invalid", pageable))
+                    .isInstanceOf(InvalidMemberStatusException.class)
+                    .hasMessage("지원하지 않는 회원 상태입니다.");
+
+            verify(userRepository, never()).findAllByStatus(any(), any());
+        }
     }
 
     @Nested
@@ -814,7 +829,7 @@ class UserServiceTest {
             given(userRepository.findById(memberId)).willReturn(Optional.of(activeMember));
 
             assertThatThrownBy(() -> userService.releaseDormantMember(adminId, memberId))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(InvalidMemberStatusException.class)
                     .hasMessage("휴면 상태의 회원만 해제할 수 있습니다.");
 
             assertThat(activeMember.getStatus()).isEqualTo(UserStatus.ACTIVE);
@@ -886,7 +901,7 @@ class UserServiceTest {
             given(userRepository.findById(memberId)).willReturn(Optional.of(targetAdmin));
 
             assertThatThrownBy(() -> userService.forceWithdraw(adminId, memberId))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(InvalidForceWithdrawalException.class)
                     .hasMessage("관리자 계정은 강제 탈퇴할 수 없습니다.");
 
             verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
@@ -904,15 +919,13 @@ class UserServiceTest {
             given(userRepository.findById(memberId)).willReturn(Optional.of(withdrawnMember));
 
             assertThatThrownBy(() -> userService.forceWithdraw(adminId, memberId))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(AlreadyWithdrawnException.class)
                     .hasMessage("이미 탈퇴한 회원입니다.");
 
             verify(refreshTokenService, never()).revokeAllRefreshTokens(any());
         }
     }
 }
-
-
 
 
 

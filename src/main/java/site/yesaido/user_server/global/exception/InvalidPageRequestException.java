@@ -1,6 +1,8 @@
 package site.yesaido.user_server.global.exception;
 
-public class InvalidPageRequestException extends RuntimeException {
+import site.yesaido.common.exception.client.BadRequestException;
+
+public class InvalidPageRequestException extends BadRequestException {
     public InvalidPageRequestException(String message) {
         super(message);
     }

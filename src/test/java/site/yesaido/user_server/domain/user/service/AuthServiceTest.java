@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import site.yesaido.user_server.domain.email.service.EmailService;
 import site.yesaido.user_server.domain.user.dto.login.LoginRequest;
 import site.yesaido.user_server.domain.user.dto.login.PasswordResetRequest;
 import site.yesaido.user_server.domain.user.dto.oauth.GoogleLoginRequest;
@@ -20,8 +21,9 @@ import site.yesaido.user_server.domain.user.entity.en.UserStatus;
 import site.yesaido.user_server.domain.user.exception.DormantUserException;
 import site.yesaido.user_server.domain.user.exception.InvalidPasswordException;
 import site.yesaido.user_server.domain.user.exception.InvalidTokenException;
-import site.yesaido.user_server.domain.user.repository.UserRepository;
+import site.yesaido.user_server.domain.user.exception.SocialLoginPasswordResetNotAllowedException;
 import site.yesaido.user_server.domain.user.repository.OAuthUserRepository;
+import site.yesaido.user_server.domain.user.repository.UserRepository;
 import site.yesaido.user_server.domain.user.service.jwt.AccessTokenBlacklistService;
 import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenGraceService;
 import site.yesaido.user_server.domain.user.service.jwt.RefreshTokenService;
@@ -48,6 +50,7 @@ class AuthServiceTest {
     @Mock private RefreshTokenGraceService refreshTokenGraceService;
     @Mock private AccessTokenBlacklistService accessTokenBlacklistService;
     @Mock private GoogleTokenVerifier googleTokenVerifier;
+    @Mock private EmailService emailService;
     @Mock private OAuthUserRepository oAuthUserRepository;
 
     @InjectMocks private AuthService authService;
@@ -265,6 +268,37 @@ class AuthServiceTest {
         assertThat(user.getPassword()).isEqualTo("encoded-current-password");
         verify(passwordEncoder, never()).encode(anyString());
         verify(refreshTokenService, never()).revokeAllRefreshTokens(user.getId());
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 전용 계정은 비밀번호를 재설정할 수 없다")
+    void resetPasswordForSocialOnlyAccountThrowsException() {
+        PasswordResetRequest request = new PasswordResetRequest("social@naver.com", "new-password");
+        User socialUser = createUser(1L, request.email(), null);
+        given(userRepository.findByEmail(request.email())).willReturn(Optional.of(socialUser));
+
+        assertThrows(
+                SocialLoginPasswordResetNotAllowedException.class,
+                () -> authService.resetPassword(request)
+        );
+
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(refreshTokenService, never()).revokeAllRefreshTokens(socialUser.getId());
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 전용 계정에는 비밀번호 찾기 인증코드를 발송하지 않는다")
+    void sendPasswordResetEmailForSocialOnlyAccountThrowsException() {
+        String email = "social@naver.com";
+        User socialUser = createUser(1L, email, null);
+        given(userRepository.findByEmail(email)).willReturn(Optional.of(socialUser));
+
+        assertThrows(
+                SocialLoginPasswordResetNotAllowedException.class,
+                () -> authService.sendPasswordResetEmail(email)
+        );
+
+        verify(emailService, never()).sendVerificationEmail(email);
     }
 
     @Test

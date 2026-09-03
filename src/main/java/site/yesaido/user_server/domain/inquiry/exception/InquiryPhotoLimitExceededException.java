@@ -1,6 +1,8 @@
 package site.yesaido.user_server.domain.inquiry.exception;
 
-public class InquiryPhotoLimitExceededException extends RuntimeException {
+import site.yesaido.common.exception.client.BadRequestException;
+
+public class InquiryPhotoLimitExceededException extends BadRequestException {
     public InquiryPhotoLimitExceededException(String message) {
         super(message);
     }

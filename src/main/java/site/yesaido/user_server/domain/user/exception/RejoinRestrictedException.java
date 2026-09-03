@@ -1,9 +1,11 @@
 package site.yesaido.user_server.domain.user.exception;
 
+import site.yesaido.common.exception.client.BadRequestException;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-public class RejoinRestrictedException extends RuntimeException {
+public class RejoinRestrictedException extends BadRequestException {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public RejoinRestrictedException(LocalDateTime rejoinAvailableAt) {
