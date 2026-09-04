@@ -7,6 +7,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import site.yesaido.common.storage.MinioObjectStorage;
@@ -27,6 +29,12 @@ class MinioServiceTest {
     @Mock
     private MinioObjectStorage minioObjectStorage;
 
+    @Mock
+    private StringRedisTemplate redis;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
     @InjectMocks
     private MinioService minioService;
 
@@ -34,6 +42,7 @@ class MinioServiceTest {
     void setUp(){
         ReflectionTestUtils.setField(minioService, "minioInternalBaseUrl", "http://storage.internal:9000");
         ReflectionTestUtils.setField(minioService, "minioPublicBaseUrl", "https://yes-nhn.site/storage-proxy");
+        lenient().when(redis.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test
@@ -249,5 +258,68 @@ class MinioServiceTest {
         assertThat(minioService.presignedGetUrl(null)).isNull();
         assertThat(minioService.presignedGetUrl(" ")).isNull();
         verifyNoInteractions(minioObjectStorage);
+    }
+
+    @Test
+    @DisplayName("캐시 히트 시 MinIO를 호출하지 않고 캐시된 URL을 반환한다")
+    void presignedGetUrl_returnsCachedUrl_whenCacheHit() {
+        String objectKey = "profiles/1/uuid.jpg";
+        String cachedUrl = "https://yes-nhn.site/storage-proxy/bucket/profiles/1/uuid.jpg?X-Amz-Signature=cached";
+        when(valueOperations.get("minio:presigned-url:" + objectKey)).thenReturn(cachedUrl);
+
+        String url = minioService.presignedGetUrl(objectKey);
+
+        assertThat(url).isEqualTo(cachedUrl);
+        verifyNoInteractions(minioObjectStorage);
+    }
+
+    @Test
+    @DisplayName("캐시 미스 시 새로 발급받은 Public URL을 25분 TTL로 Redis에 저장한다")
+    void presignedGetUrl_cachesNewlyIssuedUrl_whenCacheMiss() {
+        String objectKey = "profiles/1/uuid.jpg";
+        String expectedPublicUrl = "https://yes-nhn.site/storage-proxy/bucket/profiles/1/uuid.jpg?X-Amz-Signature=new";
+        when(valueOperations.get("minio:presigned-url:" + objectKey)).thenReturn(null);
+        when(minioObjectStorage.presignedGetUrl(eq(objectKey), eq(Duration.ofMinutes(30))))
+                .thenReturn("http://storage.internal:9000/bucket/profiles/1/uuid.jpg?X-Amz-Signature=new");
+
+        String url = minioService.presignedGetUrl(objectKey);
+
+        assertThat(url).isEqualTo(expectedPublicUrl);
+        verify(valueOperations).set("minio:presigned-url:" + objectKey, expectedPublicUrl, Duration.ofMinutes(25));
+    }
+
+    @Test
+    @DisplayName("Redis 조회 실패 시에도 예외 없이 MinIO에서 직접 발급하여 정상 반환한다")
+    void presignedGetUrl_fallsBackToMinio_whenRedisFails() {
+        String objectKey = "profiles/1/uuid.jpg";
+        when(valueOperations.get(anyString())).thenThrow(new RuntimeException("Redis connection refused"));
+        when(minioObjectStorage.presignedGetUrl(eq(objectKey), any(Duration.class)))
+                .thenReturn("http://storage.internal:9000/bucket/profiles/1/uuid.jpg?X-Amz-Signature=direct");
+
+        String url = minioService.presignedGetUrl(objectKey);
+
+        assertThat(url).isEqualTo("https://yes-nhn.site/storage-proxy/bucket/profiles/1/uuid.jpg?X-Amz-Signature=direct");
+    }
+
+    @Test
+    @DisplayName("deleteQuietly 호출 시 MinIO 객체 삭제와 함께 Redis 캐시도 삭제한다")
+    void deleteQuietly_evictsCache() {
+        String objectKey = "profiles/1/uuid.jpg";
+
+        minioService.deleteQuietly(objectKey);
+
+        verify(minioObjectStorage).removeQuietly(objectKey);
+        verify(redis).delete("minio:presigned-url:" + objectKey);
+    }
+
+    @Test
+    @DisplayName("deleteFile 호출 시 MinIO 객체 삭제와 함께 Redis 캐시도 삭제한다")
+    void deleteFile_evictsCache() {
+        String objectKey = "profiles/1/uuid.jpg";
+
+        minioService.deleteFile(objectKey);
+
+        verify(minioObjectStorage).remove(objectKey);
+        verify(redis).delete("minio:presigned-url:" + objectKey);
     }
 }

@@ -239,7 +239,7 @@ public class UserService {
             return Collections.emptyList();
         }
 
-        return userRepository.searchActiveUsers(keyword.trim(), UserStatus.DELETED).stream()
+        return userRepository.searchActiveUsers(keyword.trim(), UserStatus.ACTIVE).stream()
                 .map(UserSearchResponse::from)
                 .toList();
     }
