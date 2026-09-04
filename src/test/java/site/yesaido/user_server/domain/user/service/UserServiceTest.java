@@ -671,7 +671,7 @@ class UserServiceTest {
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        given(userRepository.searchActiveUsers("닉네임", UserStatus.DELETED))
+        given(userRepository.searchActiveUsers("닉네임", UserStatus.ACTIVE))
                 .willReturn(List.of(user));
 
         List<UserSearchResponse> result = userService.searchUsers("닉네임");

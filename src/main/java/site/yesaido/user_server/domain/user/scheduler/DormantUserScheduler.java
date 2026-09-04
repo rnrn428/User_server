@@ -21,7 +21,7 @@ public class DormantUserScheduler {
     private final UserRepository userRepository;
     private final Clock clock;
 
-    @Scheduled(cron = "0 0 12 * * *")
+    @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void processDormantUsers(){
         LocalDateTime oneYearAgo = LocalDateTime.now(clock).minusYears(1);

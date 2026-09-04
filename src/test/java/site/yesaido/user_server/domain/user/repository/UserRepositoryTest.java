@@ -31,7 +31,7 @@ class UserRepositoryTest {
         userRepository.save(activeUser("member@example.com", "진영이짱"));
         userRepository.save(activeUser("other@example.com", "관계없는닉네임"));
 
-        List<User> result = userRepository.searchActiveUsers("진영", UserStatus.DELETED);
+        List<User> result = userRepository.searchActiveUsers("진영", UserStatus.ACTIVE);
 
         assertThat(result).extracting(User::getNickName).containsExactly("진영이짱");
     }
@@ -41,8 +41,8 @@ class UserRepositoryTest {
     void searchActiveUsers_emailExactMatchOnly() {
         userRepository.save(activeUser("exact@example.com", "닉네임A"));
 
-        List<User> exactMatch = userRepository.searchActiveUsers("exact@example.com", UserStatus.DELETED);
-        List<User> partialMatch = userRepository.searchActiveUsers("exact@example", UserStatus.DELETED);
+        List<User> exactMatch = userRepository.searchActiveUsers("exact@example.com", UserStatus.ACTIVE);
+        List<User> partialMatch = userRepository.searchActiveUsers("exact@example", UserStatus.ACTIVE);
 
         assertThat(exactMatch).extracting(User::getEmail).containsExactly("exact@example.com");
         assertThat(partialMatch).isEmpty();
@@ -55,7 +55,7 @@ class UserRepositoryTest {
         deletedUser.withdraw();
         userRepository.save(deletedUser);
 
-        List<User> result = userRepository.searchActiveUsers("탈퇴자", UserStatus.DELETED);
+        List<User> result = userRepository.searchActiveUsers("탈퇴자", UserStatus.ACTIVE);
 
         assertThat(result).isEmpty();
     }
@@ -65,7 +65,7 @@ class UserRepositoryTest {
     void searchActiveUsers_noMatch() {
         userRepository.save(activeUser("someone@example.com", "아무개"));
 
-        List<User> result = userRepository.searchActiveUsers("존재하지않는키워드", UserStatus.DELETED);
+        List<User> result = userRepository.searchActiveUsers("존재하지않는키워드", UserStatus.ACTIVE);
 
         assertThat(result).isEmpty();
     }
