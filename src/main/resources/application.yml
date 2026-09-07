@@ -73,3 +73,17 @@ minio:
   secret-key: ${MINIO_SECRET_KEY}
   bucket: ${MINIO_BUCKET}
   public-base-url: ${MINIO_PUBLIC_BASE_URL}
+
+# API 문서 (springdoc-openapi / Swagger UI)
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+  paths-to-match:
+    - /api/v1/**
