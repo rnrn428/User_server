@@ -7,6 +7,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import site.yesaido.user_server.domain.user.controller.docs.AdminUserControllerDocs;
 import site.yesaido.user_server.domain.user.dto.MemberSummaryResponse;
 import site.yesaido.user_server.domain.user.service.UserService;
 import site.yesaido.user_server.global.common.ApiResponse;
@@ -14,9 +15,10 @@ import site.yesaido.user_server.global.common.ApiResponse;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/admin/members")
-public class AdminUserController {
+public class AdminUserController implements AdminUserControllerDocs {
     private final UserService userService;
 
+    @Override
     @GetMapping
     public ResponseEntity<ApiResponse<Page<MemberSummaryResponse>>> getMembers(@RequestHeader("X-User-Id") Long userId,
                                                                                @RequestParam(defaultValue = "active") String status,
@@ -26,6 +28,7 @@ public class AdminUserController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @PutMapping("/{memberId}/dormant-release")
     public ResponseEntity<ApiResponse<Void>> releaseDormantMember(@RequestHeader("X-User-Id") Long adminUserId, @PathVariable Long memberId){
         userService.releaseDormantMember(adminUserId, memberId);
@@ -33,6 +36,7 @@ public class AdminUserController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @DeleteMapping("/{memberId}")
     public ResponseEntity<ApiResponse<Void>> forceWithdraw(@RequestHeader("X-User-Id") Long adminUserId, @PathVariable Long memberId){
         userService.forceWithdraw(adminUserId, memberId);

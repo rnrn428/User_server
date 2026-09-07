@@ -14,6 +14,7 @@ import site.yesaido.user_server.domain.inquiry.dto.response.InquiryAccessRespons
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryCategoryResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryDetailResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquirySummaryResponse;
+import site.yesaido.user_server.domain.inquiry.controller.docs.InquiryControllerDocs;
 import site.yesaido.user_server.domain.inquiry.service.InquiryService;
 import site.yesaido.user_server.global.common.ApiResponse;
 import site.yesaido.user_server.global.common.PageRequestValidator;
@@ -23,9 +24,10 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/inquiries")
-public class InquiryController {
+public class InquiryController implements InquiryControllerDocs {
     private final InquiryService inquiryService;
 
+    @Override
     @GetMapping("/categories")
     public ResponseEntity<ApiResponse<List<InquiryCategoryResponse>>> getCategories() {
         List<InquiryCategoryResponse> responses = inquiryService.getCategories();
@@ -33,6 +35,7 @@ public class InquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<InquiryDetailResponse>> createInquiry(@RequestHeader("X-User-Id") Long userId,
                                                                             @Valid @RequestPart("request") InquiryCreateRequest request,
@@ -42,6 +45,7 @@ public class InquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @GetMapping
     public ResponseEntity<ApiResponse<Page<InquirySummaryResponse>>> getInquiries(@RequestHeader("X-User-Id") Long userId,
                                                                                   @RequestParam(defaultValue = "0") Integer page,
@@ -52,6 +56,7 @@ public class InquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @GetMapping("/{inquiry-id}")
     public ResponseEntity<ApiResponse<InquiryDetailResponse>> getMyInquiryDetail(@RequestHeader("X-User-Id") Long userId,
                                                                             @PathVariable("inquiry-id") Long inquiryId) {
@@ -60,6 +65,7 @@ public class InquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @PostMapping(value = "/{inquiry-id}/messages", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<InquiryDetailResponse>> addFollowUp(@RequestHeader("X-User-Id") Long userId,
                                                                           @PathVariable("inquiry-id") Long inquiryId,
@@ -70,6 +76,7 @@ public class InquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @GetMapping("/{inquiry-id}/access")
     public ResponseEntity<ApiResponse<InquiryAccessResponse>> checkInquiryAccess(@RequestHeader("X-User-Id") Long userId,
                                                                                  @PathVariable("inquiry-id") Long inquiryId){
