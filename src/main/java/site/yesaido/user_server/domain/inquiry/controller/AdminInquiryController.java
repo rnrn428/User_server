@@ -13,6 +13,7 @@ import site.yesaido.user_server.domain.inquiry.dto.request.InquiryMessageRequest
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryCategoryResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquiryDetailResponse;
 import site.yesaido.user_server.domain.inquiry.dto.response.InquirySummaryResponse;
+import site.yesaido.user_server.domain.inquiry.controller.docs.AdminInquiryControllerDocs;
 import site.yesaido.user_server.domain.inquiry.entity.InquiryStatus;
 import site.yesaido.user_server.domain.inquiry.service.InquiryService;
 import site.yesaido.user_server.global.common.ApiResponse;
@@ -23,9 +24,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/inquiries")
 @RequiredArgsConstructor
-public class AdminInquiryController {
+public class AdminInquiryController implements AdminInquiryControllerDocs {
     private final InquiryService inquiryService;
 
+    @Override
     @GetMapping
     public ResponseEntity<ApiResponse<Page<InquirySummaryResponse>>> getAllInquirySummary(
             @RequestHeader("X-User-Id") Long adminUserId,
@@ -38,6 +40,7 @@ public class AdminInquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @GetMapping("/{inquiry-id}")
     public ResponseEntity<ApiResponse<InquiryDetailResponse>> getInquiryDetail(@RequestHeader("X-User-Id") Long adminUserId,
                                                                                @PathVariable("inquiry-id") Long inquiryId) {
@@ -46,6 +49,7 @@ public class AdminInquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @PutMapping(value = "/messages/{answer-id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<InquiryDetailResponse>> answerMessage(@RequestHeader("X-User-Id") Long adminUserId,
                                                                             @PathVariable("answer-id") Long answerId,
@@ -56,6 +60,7 @@ public class AdminInquiryController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @PostMapping("/categories")
     public ResponseEntity<ApiResponse<InquiryCategoryResponse>> createCategory(@RequestHeader("X-User-Id") Long adminId, @Valid @RequestBody InquiryCategoryCreateRequest request){
         InquiryCategoryResponse response = inquiryService.createCategory(adminId, request);

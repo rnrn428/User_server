@@ -12,6 +12,7 @@ import site.yesaido.user_server.domain.user.dto.oauth.GoogleLoginRequest;
 import site.yesaido.user_server.domain.user.dto.token.LogoutRequest;
 import site.yesaido.user_server.domain.user.dto.token.ReissueRequest;
 import site.yesaido.user_server.domain.user.dto.token.TokenResponse;
+import site.yesaido.user_server.domain.user.controller.docs.AuthControllerDocs;
 import site.yesaido.user_server.domain.user.service.AuthService;
 import site.yesaido.user_server.global.common.ApiResponse;
 
@@ -19,9 +20,10 @@ import site.yesaido.user_server.global.common.ApiResponse;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Slf4j
-public class AuthController {
+public class AuthController implements AuthControllerDocs {
     private final AuthService authService;
 
+    @Override
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<TokenResponse>> login(@Valid @RequestBody LoginRequest request){
         TokenResponse response = authService.login(request);
@@ -29,6 +31,7 @@ public class AuthController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @PostMapping("/reissue")
     public ResponseEntity<ApiResponse<TokenResponse>> reissue(@Valid @RequestBody ReissueRequest reissueRequest){
         TokenResponse response = authService.reissue(reissueRequest.getRefreshToken());
@@ -36,12 +39,14 @@ public class AuthController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest request){
         authService.logout(request.refreshToken(), request.accessToken());
         return ResponseEntity.noContent().build();
     }
 
+    @Override
     @PostMapping("/dormant/release")
     public ResponseEntity<ApiResponse<Void>> releaseDormant(@RequestParam("email") String email){
         authService.releaseDormant(email);
@@ -49,6 +54,7 @@ public class AuthController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @PostMapping("/oauth2/google")
     public ResponseEntity<ApiResponse<TokenResponse>> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request){
         TokenResponse response = authService.loginWithGoogle(request);
@@ -56,6 +62,7 @@ public class AuthController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Override
     @PostMapping("/password/reset")
     public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody PasswordResetRequest resetRequest){
         authService.resetPassword(resetRequest);
@@ -64,6 +71,7 @@ public class AuthController {
         return ResponseEntity.status(response.httpStatus()).body(response);
     }
 
+    @Override
     @PostMapping("/password-reset/email/send")
     public ResponseEntity<ApiResponse<Void>> sendPasswordResetEmail(@Valid @RequestBody EmailSendRequest request){
         authService.sendPasswordResetEmail(request.getEmail());

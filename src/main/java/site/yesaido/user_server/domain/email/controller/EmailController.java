@@ -9,15 +9,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import site.yesaido.user_server.domain.email.dto.EmailSendRequest;
 import site.yesaido.user_server.domain.email.dto.EmailVerifyRequest;
+import site.yesaido.user_server.domain.email.controller.docs.EmailControllerDocs;
 import site.yesaido.user_server.domain.email.service.EmailService;
 import site.yesaido.user_server.global.common.ApiResponse;
 
 @RestController
 @RequestMapping("/api/v1/auth/email")
 @RequiredArgsConstructor
-public class EmailController {
+public class EmailController implements EmailControllerDocs {
     private final EmailService emailService;
 
+    @Override
     @PostMapping("/send")
     public ResponseEntity<ApiResponse<Void>> sendEmail(@Valid @RequestBody EmailSendRequest request) {
         emailService.sendVerificationEmail(request.getEmail());
@@ -25,6 +27,7 @@ public class EmailController {
         return ResponseEntity.status(response.httpStatus()).body(response);
     }
 
+    @Override
     @PostMapping("/verify")
     public ResponseEntity<ApiResponse<Boolean>> verifyEmail(@Valid @RequestBody EmailVerifyRequest request) {
         boolean verifyCode = emailService.verifyCode(request.getEmail(), request.getCode());
