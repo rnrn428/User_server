@@ -279,7 +279,7 @@ class MinioServiceTest {
         String objectKey = "profiles/1/uuid.jpg";
         String expectedPublicUrl = "https://yes-nhn.site/storage-proxy/bucket/profiles/1/uuid.jpg?X-Amz-Signature=new";
         when(valueOperations.get("minio:presigned-url:" + objectKey)).thenReturn(null);
-        when(minioObjectStorage.presignedGetUrl(eq(objectKey), eq(Duration.ofMinutes(30))))
+        when(minioObjectStorage.presignedGetUrl(objectKey, Duration.ofMinutes(30)))
                 .thenReturn("http://storage.internal:9000/bucket/profiles/1/uuid.jpg?X-Amz-Signature=new");
 
         String url = minioService.presignedGetUrl(objectKey);
