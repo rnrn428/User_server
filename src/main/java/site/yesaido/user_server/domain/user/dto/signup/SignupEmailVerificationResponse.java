@@ -22,4 +22,8 @@ public record SignupEmailVerificationResponse(
     public static SignupEmailVerificationResponse rejoinRestricted(LocalDateTime rejoinAvailableAt) {
         return new SignupEmailVerificationResponse(true, SignupEligibility.REJOIN_RESTRICTED, rejoinAvailableAt);
     }
+
+    public static SignupEmailVerificationResponse dormant() {
+        return new SignupEmailVerificationResponse(true, SignupEligibility.DORMANT, null);
+    }
 }
