@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import site.yesaido.user_server.domain.user.controller.docs.UserControllerDocs;
 import site.yesaido.user_server.domain.user.dto.UserSummaryResponse;
 import site.yesaido.user_server.domain.user.dto.profile.PasswordChangeRequest;
 import site.yesaido.user_server.domain.user.dto.profile.PasswordVerifyRequest;
@@ -16,7 +17,6 @@ import site.yesaido.user_server.domain.user.dto.signup.SignupEmailVerificationRe
 import site.yesaido.user_server.domain.user.dto.signup.UserSignResponse;
 import site.yesaido.user_server.domain.user.dto.signup.UserSignUpRequest;
 import site.yesaido.user_server.domain.user.dto.withdraw.WithdrawRequest;
-import site.yesaido.user_server.domain.user.controller.docs.UserControllerDocs;
 import site.yesaido.user_server.domain.user.service.UserService;
 import site.yesaido.user_server.global.common.ApiResponse;
 
