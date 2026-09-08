@@ -305,6 +305,10 @@ public class UserService {
     }
 
     private SignupEmailVerificationResponse getSignupEligibility(User user) {
+        if (user.getStatus() == UserStatus.DORMANT) {
+            return SignupEmailVerificationResponse.dormant();
+        }
+
         if (user.getStatus() != UserStatus.DELETED) {
             return SignupEmailVerificationResponse.alreadyRegistered();
         }
