@@ -3,6 +3,7 @@ package site.yesaido.user_server.domain.user.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import site.yesaido.common.storage.ImageFileValidator;
@@ -25,10 +26,14 @@ public class MinioService {
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
     private static final Duration PRESIGNED_URL_TTL = Duration.ofMinutes(30);
+    private static final Duration PRESIGNED_URL_CACHE_TTL = Duration.ofMinutes(25);
+    private static final String PRESIGNED_URL_CACHE_PREFIX = "minio:presigned-url:";
+
     private static final String PROFILE_DOMAIN = "profiles";
     private static final String INQUIRY_DOMAIN = "inquiries";
 
     private final MinioObjectStorage minioObjectStorage;
+    private final StringRedisTemplate redis;
 
     @Value("${minio.url}")
     private String minioInternalBaseUrl;
@@ -72,6 +77,7 @@ public class MinioService {
         }
         try {
             minioObjectStorage.remove(objectKey);
+            evictCache(objectKey);
         } catch (MinioObjectStorageException e) {
             log.error("MinIO 파일 삭제 실패 : {}", objectKey, e);
             throw new FileDeleteException("사진 삭제에 실패했습니다.");
@@ -80,6 +86,16 @@ public class MinioService {
 
     public void deleteQuietly(String objectKey) {
         minioObjectStorage.removeQuietly(objectKey);
+        evictCache(objectKey);
+    }
+
+    public void evictCache(String objectKey){
+        if(objectKey == null || objectKey.isBlank()) return;
+        try{
+            redis.delete(PRESIGNED_URL_CACHE_PREFIX + objectKey);
+        }catch (Exception e){
+            log.warn("Redis 캐시 삭제 실패 : key={}", PRESIGNED_URL_CACHE_PREFIX + objectKey, e);
+        }
     }
 
     /**
@@ -91,6 +107,42 @@ public class MinioService {
         if (objectKey == null || objectKey.isBlank()) {
             return null;
         }
+
+        String cacheKey = PRESIGNED_URL_CACHE_PREFIX + objectKey;
+
+        // 1. 캐시 조회
+        String cached = getCachedUrl(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        // 2. 캐시 미스 시 MinIO에서 발급
+        String publicUrl = generatePublicPresignedUrl(objectKey);
+        if (publicUrl != null) {
+            cacheUrl(cacheKey, publicUrl);
+        }
+
+        return publicUrl;
+    }
+
+    private String getCachedUrl(String cacheKey) {
+        try {
+            return redis.opsForValue().get(cacheKey);
+        } catch (Exception e) {
+            log.warn("Redis 캐시 조회 실패, MinIO 직접 조회 진행: key={}, cause={}", cacheKey, e.getMessage());
+            return null;
+        }
+    }
+
+    private void cacheUrl(String cacheKey, String publicUrl) {
+        try {
+            redis.opsForValue().set(cacheKey, publicUrl, PRESIGNED_URL_CACHE_TTL);
+        } catch (Exception e) {
+            log.warn("Redis 캐시 저장 실패: key={}, cause={}", cacheKey, e.getMessage());
+        }
+    }
+
+    private String generatePublicPresignedUrl(String objectKey) {
         try {
             String presignedUrl = minioObjectStorage.presignedGetUrl(objectKey, PRESIGNED_URL_TTL);
             return presignedUrl.startsWith(minioInternalBaseUrl)
@@ -101,6 +153,7 @@ public class MinioService {
             return null;
         }
     }
+
 
     public void ensureBucketExists() {
         try {

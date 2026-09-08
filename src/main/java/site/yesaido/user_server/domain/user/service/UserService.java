@@ -239,7 +239,7 @@ public class UserService {
             return Collections.emptyList();
         }
 
-        return userRepository.searchActiveUsers(keyword.trim(), UserStatus.DELETED).stream()
+        return userRepository.searchActiveUsers(keyword.trim(), UserStatus.ACTIVE).stream()
                 .map(UserSearchResponse::from)
                 .toList();
     }
@@ -305,6 +305,10 @@ public class UserService {
     }
 
     private SignupEmailVerificationResponse getSignupEligibility(User user) {
+        if (user.getStatus() == UserStatus.DORMANT) {
+            return SignupEmailVerificationResponse.dormant();
+        }
+
         if (user.getStatus() != UserStatus.DELETED) {
             return SignupEmailVerificationResponse.alreadyRegistered();
         }

@@ -23,9 +23,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByNickName(String nickname);
 
     // 재배 멤버 초대용: 닉네임 또는 이메일 부분일치로 활성 사용자 검색
-    @Query("SELECT u FROM User u WHERE u.status <> :excludedStatus " +
+    @Query("SELECT u FROM User u WHERE u.status = :status " +
             "AND (u.nickName LIKE CONCAT('%', :keyword, '%') OR u.email = :keyword)")
-    List<User> searchActiveUsers(@Param("keyword") String keyword, @Param("excludedStatus") UserStatus excludedStatus);
+    List<User> searchActiveUsers(@Param("keyword") String keyword, @Param("status") UserStatus status);
 
     @Query("SELECT u FROM User u WHERE u.status = :status AND (u.lastLoginAt <= :cutoffDate OR (u.lastLoginAt IS NULL AND u.createdAt <= :cutoffDate))")
     List<User> findDormantCandidates(@Param("status") UserStatus status, @Param("cutoffDate")LocalDateTime cutoffDate);

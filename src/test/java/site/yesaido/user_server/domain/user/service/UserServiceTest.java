@@ -213,6 +213,23 @@ class UserServiceTest {
         }
 
         @Test
+        @DisplayName("성공 : 휴면 상태인 이메일은 DORMANT 상태를 반환한다")
+        void verifySignupEmail_dormantUserReturnsDormantEligibility() {
+            String email = "dormant@test.com";
+            User dormantUser = User.builder()
+                    .email(email)
+                    .status(UserStatus.DORMANT)
+                    .build();
+            given(emailService.verifySignupCode(email, "123456")).willReturn(true);
+            given(userRepository.findByEmail(email)).willReturn(Optional.of(dormantUser));
+
+            var response = userService.verifySignupEmail(email, "123456");
+
+            assertThat(response.verified()).isTrue();
+            assertThat(response.eligibility()).isEqualTo(SignupEligibility.DORMANT);
+        }
+
+        @Test
         @DisplayName("성공 : 탈퇴 후 30일 이내 이메일은 재가입 제한 상태를 반환한다")
         void verifySignupEmail_recentlyWithdrawnIsRestricted() {
             String email = "withdrawn@test.com";
@@ -671,7 +688,7 @@ class UserServiceTest {
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        given(userRepository.searchActiveUsers("닉네임", UserStatus.DELETED))
+        given(userRepository.searchActiveUsers("닉네임", UserStatus.ACTIVE))
                 .willReturn(List.of(user));
 
         List<UserSearchResponse> result = userService.searchUsers("닉네임");
